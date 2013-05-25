@@ -437,7 +437,7 @@ Value do_evaluate(const Position& pos, Value& margin) {
            sf = ScaleFactor(50);
   }
 
-  margin = margins[pos.side_to_move()];
+  margin = std::max(margins[WHITE], margins[BLACK]); // was: margin = margins[pos.side_to_move()];
   Value v = interpolate(score, ei.mi->game_phase(), sf);
 
   // In case of tracing add all single evaluation contributions for both white and black
