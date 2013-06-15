@@ -940,7 +940,6 @@ split_point_start: // At split points actual search starts from here
       // Step 15. Reduced depth search (LMR). If the move fails high will be
       // re-searched at full depth.
       if (    depth > 3 * ONE_PLY
-          && !pvMove
           && !captureOrPromotion
           && !dangerous
           &&  move != ttMove
@@ -965,7 +964,7 @@ split_point_start: // At split points actual search starts from here
           ss->reduction = DEPTH_ZERO;
       }
       else
-          doFullDepthSearch = !pvMove;
+          doFullDepthSearch = true;
 
       // Step 16. Full depth search, when LMR is skipped or fails high
       if (doFullDepthSearch)
@@ -982,7 +981,7 @@ split_point_start: // At split points actual search starts from here
       // Only for PV nodes do a full PV search on the first move or after a fail
       // high, in the latter case search only if value < beta, otherwise let the
       // parent node to fail low with value <= alpha and to try another move.
-      if (PvNode && (pvMove || (value > alpha && (RootNode || value < beta))))
+      if (PvNode && (value > alpha && (RootNode || value < beta)))
           value = newDepth < ONE_PLY ?
                           givesCheck ? -qsearch<PV,  true>(pos, ss+1, -beta, -alpha, DEPTH_ZERO)
                                      : -qsearch<PV, false>(pos, ss+1, -beta, -alpha, DEPTH_ZERO)
