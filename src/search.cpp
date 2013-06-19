@@ -632,6 +632,7 @@ namespace {
     if (   !PvNode
         &&  depth < 4 * ONE_PLY
         && !inCheck
+        && !cutNode
         &&  eval + razor_margin(depth) < beta
         &&  ttMove == MOVE_NONE
         &&  abs(beta) < VALUE_MATE_IN_MAX_PLY
