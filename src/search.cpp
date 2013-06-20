@@ -62,7 +62,7 @@ namespace {
   enum NodeType { Root, PV, NonPV, SplitPointRoot, SplitPointPV, SplitPointNonPV };
 
   // Dynamic razoring margin based on depth
-  inline Value razor_margin(Depth d) { return Value(512 + 16 * int(d)); }
+  inline Value razor_margin(Depth d) { return Value(112 + 4 * int(d) * int(d)); }
 
   // Futility lookup tables (initialized at startup) and their access functions
   Value FutilityMargins[16][64]; // [depth][moveNumber]
@@ -632,7 +632,8 @@ namespace {
     if (   !PvNode
         &&  depth < 4 * ONE_PLY
         && !inCheck
-        &&  eval + razor_margin(depth) < beta
+        &&  eval + razor_margin(depth)
+        - (cutNode ? (ss-1)->futilityMoveCount : -futility_margin(depth, (ss-1)->futilityMoveCount)) < beta
         &&  ttMove == MOVE_NONE
         &&  abs(beta) < VALUE_MATE_IN_MAX_PLY
         && !pos.pawn_on_7th(pos.side_to_move()))
