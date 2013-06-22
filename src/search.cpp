@@ -75,8 +75,8 @@ namespace {
   inline Value razor_margin(Depth d, bool, Stack* ss) {
     
     return Value(112 + 4 * int(d) * int(d)
-  				           + (true ? -(ss-1)->futilityMoveCount
-							               : futility_margin(d, (ss-1)->futilityMoveCount)));
+                     + (true ? -(ss-1)->futilityMoveCount
+                             : futility_margin(d, (ss-1)->futilityMoveCount)));
   }
 
   // Reduction lookup tables (initialized at startup) and their access function
