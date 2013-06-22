@@ -638,7 +638,6 @@ namespace {
         &&  depth < 4 * ONE_PLY
         && !inCheck
         &&  eval + razor_margin(depth, cutNode, ss) < beta
-        &&  ttMove == MOVE_NONE
         &&  abs(beta) < VALUE_MATE_IN_MAX_PLY
         && !pos.pawn_on_7th(pos.side_to_move()))
     {
