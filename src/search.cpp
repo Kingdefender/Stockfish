@@ -62,21 +62,21 @@ namespace {
   enum NodeType { Root, PV, NonPV, SplitPointRoot, SplitPointPV, SplitPointNonPV };
 
   // Futility lookup tables (initialized at startup) and their access functions
-  Value FutilityMargins[16][64]; // [depth][moveNumber]
+  Value FutilityMargins[32][64]; // [depth][moveNumber]
   int FutilityMoveCounts[32];    // [depth]
 
   inline Value futility_margin(Depth d, int mn) {
 
-    return d < 7 * ONE_PLY ? FutilityMargins[std::max(int(d), 1)][std::min(mn, 63)]
-                           : 2 * VALUE_INFINITE;
+    return d < 16 * ONE_PLY ? FutilityMargins[std::max(int(d), 1)][std::min(mn, 63)]
+                            : 2 * VALUE_INFINITE;
   }
   
   // Dynamic razoring margin based on depth
   inline Value razor_margin(Depth d, bool, Stack* ss) {
     
-    return Value(112 + 4 * int(d) * int(d)
-                     + (true ? -(ss-1)->futilityMoveCount
-                             : futility_margin(d, (ss-1)->futilityMoveCount)));
+    return Value( 4 * int(d) * int(d)
+                + (cutNode && !ss->reduction ? 122 - (ss-1)->futilityMoveCount
+                                             : futility_margin(d, (ss-1)->futilityMoveCount)));
   }
 
   // Reduction lookup tables (initialized at startup) and their access function
@@ -146,8 +146,8 @@ void Search::init() {
   }
 
   // Init futility margins array
-  for (d = 1; d < 16; d++) for (mc = 0; mc < 64; mc++)
-      FutilityMargins[d][mc] = Value(112 * int(log(double(d * d) / 2) / log(2.0) + 1.001) - 8 * mc + 45);
+  for (d = 1; d < 32; d++) for (mc = 0; mc < 64; mc++)
+      FutilityMargins[d][mc] = Value(145 + d * int(log(double(d * d))) - (d + 5) * (mc + 1));
 
   // Init futility move count array
   for (d = 0; d < 32; d++)
@@ -160,21 +160,17 @@ void Search::init() {
 
 size_t Search::perft(Position& pos, Depth depth) {
 
-  // At the last ply just return the number of legal moves (leaf nodes)
-  if (depth == ONE_PLY)
-      return MoveList<LEGAL>(pos).size();
-
   StateInfo st;
   size_t cnt = 0;
   CheckInfo ci(pos);
+  const bool leaf = depth == 2 * ONE_PLY;
 
   for (MoveList<LEGAL> it(pos); *it; ++it)
   {
       pos.do_move(*it, st, ci, pos.move_gives_check(*it, ci));
-      cnt += perft(pos, depth - ONE_PLY);
+      cnt += leaf ? MoveList<LEGAL>(pos).size() : perft(pos, depth - ONE_PLY);
       pos.undo_move(*it);
   }
-
   return cnt;
 }
 
@@ -892,7 +888,9 @@ split_point_start: // At split points actual search starts from here
           // We illogically ignore reduction condition depth >= 3*ONE_PLY for predicted depth,
           // but fixing this made program slightly weaker.
           Depth predictedDepth = newDepth - reduction<PvNode>(depth, moveCount);
-          futilityValue =  ss->staticEval + ss->evalMargin + futility_margin(predictedDepth, moveCount)
+          futilityValue =  ss->staticEval
+                         + ss->evalMargin
+                         + futility_margin(predictedDepth - (cutNode ? ONE_PLY : DEPTH_ZERO), moveCount)
                          + Gains[pos.piece_moved(move)][to_sq(move)];
 
           if (futilityValue < beta)
