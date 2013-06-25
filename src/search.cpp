@@ -72,11 +72,13 @@ namespace {
   }
   
   // Dynamic razoring margin based on depth
-  inline Value razor_margin(Depth d, bool, Stack* ss) {
+  inline Value razor_margin(Depth d, bool cutNode, Stack* ss) {
     
     return Value( 4 * int(d) * int(d)
-                + (cutNode && !ss->reduction ? 122 - (ss-1)->futilityMoveCount
-                                             : futility_margin(d, (ss-1)->futilityMoveCount)));
+                + (cutNode ? 122 - (ss-1)->futilityMoveCount
+                           : ss->staticEval - (ss-2)->staticEval
+                           + 2 * ss->evalMargin - (ss-2)->evalMargin
+                           + futility_margin(d, (ss-1)->futilityMoveCount)));
   }
 
   // Reduction lookup tables (initialized at startup) and their access function
