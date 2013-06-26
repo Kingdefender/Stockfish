@@ -141,15 +141,15 @@ void Search::init() {
   // Init reductions array
   for (hd = 1; hd < 64; hd++) for (mc = 1; mc < 64; mc++)
   {
-      double    pvRed = log(double(hd)) * log(double(mc)) / 3.0;
-      double nonPVRed = 0.33 + log(double(hd)) * log(double(mc)) / 2.25;
+      double    pvRed = log(double((hd + 1) * (hd - 1))) * log(double(mc)) / 3.0;
+      double nonPVRed = 0.33 + log(double((hd + 1) * (hd - 1))) * log(double(mc)) / 2.25;
       Reductions[1][hd][mc] = (int8_t) (   pvRed >= 1.0 ? floor(   pvRed * int(ONE_PLY)) : 0);
       Reductions[0][hd][mc] = (int8_t) (nonPVRed >= 1.0 ? floor(nonPVRed * int(ONE_PLY)) : 0);
   }
 
   // Init futility margins array
   for (d = 1; d < 32; d++) for (mc = 0; mc < 64; mc++)
-      FutilityMargins[d][mc] = Value(145 + d * int(log(double(d * d))) - (d + 5) * (mc + 1));
+      FutilityMargins[d][mc] = Value(145 + d * d * int(log(double(d * d))) - (d + 5) * (mc + 1));
 
   // Init futility move count array
   for (d = 0; d < 32; d++)
@@ -839,6 +839,8 @@ split_point_start: // At split points actual search starts from here
 
       else if (givesCheck && pos.see_sign(move) >= 0)
           ext = ONE_PLY / 2;
+          
+      Move NextbestMove = MOVE_NONE;
 
       // Singular extension search. If all moves but one fail low on a search of
       // (alpha-s, beta-s), and just one fails high on (alpha, beta), then that move
@@ -862,6 +864,8 @@ split_point_start: // At split points actual search starts from here
 
           if (value < rBeta)
               ext = ONE_PLY;
+          else
+              NextbestMove = ss->currentMove;          
       }
 
       // Update current move (this must be done after singular extension search)
@@ -872,7 +876,8 @@ split_point_start: // At split points actual search starts from here
           && !captureOrPromotion
           && !inCheck
           && !dangerous
-       /* &&  move != ttMove Already implicit in the next condition */
+          && !excludedMove;
+          &&  move != NextbestMove;
           &&  bestValue > VALUE_MATED_IN_MAX_PLY)
       {
           // Move count based pruning
