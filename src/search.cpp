@@ -841,6 +841,7 @@ split_point_start: // At split points actual search starts from here
           ext = ONE_PLY / 2;
           
       Move NextbestMove = MOVE_NONE;
+      bool nonsingularReduced = false;
 
       // Singular extension search. If all moves but one fail low on a search of
       // (alpha-s, beta-s), and just one fails high on (alpha, beta), then that move
@@ -858,14 +859,17 @@ split_point_start: // At split points actual search starts from here
           Value rBeta = ttValue - int(depth);
           ss->excludedMove = move;
           ss->skipNullMove = true;
-          value = search<NonPV>(pos, ss, rBeta - 1, rBeta, depth / 2, cutNode);
+          value = search<NonPV>(pos, ss, rBeta - 1, rBeta, depth - 3 * ONE_PLY, cutNode);
           ss->skipNullMove = false;
           ss->excludedMove = MOVE_NONE;
 
           if (value < rBeta)
               ext = ONE_PLY;
           else
-              NextbestMove = ss->currentMove;          
+          {
+              NextbestMove = ss->currentMove;
+              nonsingularReduced = true;
+          }
       }
 
       // Update current move (this must be done after singular extension search)
@@ -980,6 +984,9 @@ split_point_start: // At split points actual search starts from here
       {
           if (SpNode)
               alpha = splitPoint->alpha;
+              
+          if (ttMove && nonsingularReduced)
+              newDepth -= ONE_PLY;
 
           value = newDepth < ONE_PLY ?
                           givesCheck ? -qsearch<NonPV,  true>(pos, ss+1, -(alpha+1), -alpha, DEPTH_ZERO)
