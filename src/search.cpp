@@ -856,14 +856,13 @@ split_point_start: // At split points actual search starts from here
       {
           assert(ttValue != VALUE_NONE);
 
-          Value rBeta = ttValue - int(depth);
           ss->excludedMove = move;
           ss->skipNullMove = true;
-          value = search<NonPV>(pos, ss, rBeta - 1, rBeta, depth - 3 * ONE_PLY, cutNode);
+          value = search<NonPV>(pos, ss, beta - 1, beta, depth - 3 * ONE_PLY, cutNode);
           ss->skipNullMove = false;
           ss->excludedMove = MOVE_NONE;
 
-          if (value < rBeta)
+          if (value < beta)
               ext = ONE_PLY;
           else
           {
@@ -898,10 +897,13 @@ split_point_start: // At split points actual search starts from here
           // Value based pruning
           // We illogically ignore reduction condition depth >= 3*ONE_PLY for predicted depth,
           // but fixing this made program slightly weaker.
-          Depth predictedDepth = newDepth - reduction<PvNode>(depth, moveCount);
+          Depth predictedDepth =  newDepth
+                                - reduction<PvNode>(depth, moveCount)
+                                - (cutNode ? ONE_PLY : DEPTH_ZERO);
+                                
           futilityValue =  ss->staticEval
                          + ss->evalMargin
-                         + futility_margin(predictedDepth - (cutNode ? ONE_PLY : DEPTH_ZERO), moveCount)
+                         + futility_margin(predictedDepth, moveCount)
                          + Gains[pos.piece_moved(move)][to_sq(move)];
 
           if (futilityValue < beta)
