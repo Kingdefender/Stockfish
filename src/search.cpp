@@ -149,7 +149,7 @@ void Search::init() {
 
   // Init futility margins array
   for (d = 1; d < 32; d++) for (mc = 0; mc < 64; mc++)
-      FutilityMargins[d][mc] = Value(145 + d * d * int(log(double(d * d))) - (d + 5) * (mc + 1));
+      FutilityMargins[d][mc] = Value(100 + d * d * int(log(double(d * d))) - (d + 5) * (mc + 1));
 
   // Init futility move count array
   for (d = 0; d < 32; d++)
@@ -876,8 +876,8 @@ split_point_start: // At split points actual search starts from here
           && !captureOrPromotion
           && !inCheck
           && !dangerous
-          && !excludedMove;
-          &&  move != NextbestMove;
+          && !excludedMove
+          &&  move != NextbestMove
           &&  bestValue > VALUE_MATED_IN_MAX_PLY)
       {
           // Move count based pruning
