@@ -443,6 +443,12 @@ Value do_evaluate(const Position& pos, Value& margin) {
     if (pos.count<QUEEN>(Us) && pos.non_pawn_material(Us) > QueenValueMg + PawnValueMg)
     {
         ei.kingRing[Them] = b | shift_bb<Down>(b);
+        if (file_of(pos.king_square(Them)) == FILE_A)
+            b |= b >> 1;
+        if (file_of(pos.king_square(Them)) == FILE_H)
+            b |= b << 1;
+        if (file_of(pos.king_square(Them)) == FILE_C)
+            b |= b << 1;
         b &= ei.attackedBy[Us][PAWN];
         ei.kingAttackersCount[Us] = b ? popcount<Max15>(b) / 2 : 0;
         ei.kingAdjacentZoneAttacksCount[Us] = ei.kingAttackersWeight[Us] = 0;
