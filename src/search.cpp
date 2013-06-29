@@ -944,7 +944,9 @@ split_point_start: // At split points actual search starts from here
       {
           ss->reduction = reduction<PvNode>(depth, moveCount);
 
-          if (!PvNode && cutNode)
+          if (   !PvNode
+              &&  singularExtensionNode
+              && !ext) // ttMove, possibly singular move, has failed
               ss->reduction += ONE_PLY;
 
           if (move == countermoves[0] || move == countermoves[1])
