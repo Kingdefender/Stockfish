@@ -872,7 +872,7 @@ moves_loop: // When in check and at SpNode search starts from here
           
           // Quiet move count and value based pruning
           if (    depth < 16 * ONE_PLY
-  	          &&  cutNode
+              &&  cutNode
               && !SpNode
               &&  ss->staticEval + ss->evalMargin < beta
               &&  moveCount + quietCount >= FutilityMoveCounts[depth]
