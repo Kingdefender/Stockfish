@@ -21,6 +21,7 @@
 #include <cassert>
 #include <cmath>
 #include <cstring>
+#include <exception>
 #include <iostream>
 #include <sstream>
 
@@ -75,11 +76,11 @@ namespace {
   }
 
   // Reduction lookup tables (initialized at startup) and their access function
-  int8_t Reductions[2][64][64]; // [pv][depth][moveNumber]
+  int8_t Reductions[2][2][64][64]; // [pv][improving][depth][moveNumber]
 
-  template <bool PvNode> inline Depth reduction(Depth d, int mn) {
+  template <bool PvNode> inline Depth reduction(bool i, Depth d, int mn) {
 
-    return (Depth) Reductions[PvNode][std::min(int(d) / ONE_PLY, 63)][std::min(mn, 63)];
+    return (Depth) Reductions[PvNode][i][std::min(int(d) / ONE_PLY, 63)][std::min(mn, 63)];
   }
 
   size_t PVSize, PVIdx;
@@ -103,6 +104,8 @@ namespace {
   bool allows(const Position& pos, Move first, Move second);
   bool refutes(const Position& pos, Move first, Move second);
   string uci_pv(const Position& pos, int depth, Value alpha, Value beta);
+
+  class stop : public std::exception {};
 
   struct Skill {
     Skill(int l) : level(l), best(MOVE_NONE) {}
@@ -136,8 +139,14 @@ void Search::init() {
   {
       double    pvRed = log(double(hd)) * log(double(mc)) / 3.0;
       double nonPVRed = 0.33 + log(double(hd)) * log(double(mc)) / 2.25;
-      Reductions[1][hd][mc] = (int8_t) (   pvRed >= 1.0 ? floor(   pvRed * int(ONE_PLY)) : 0);
-      Reductions[0][hd][mc] = (int8_t) (nonPVRed >= 1.0 ? floor(nonPVRed * int(ONE_PLY)) : 0);
+      Reductions[1][1][hd][mc] = (int8_t) (   pvRed >= 1.0 ? floor(   pvRed * int(ONE_PLY)) : 0);
+      Reductions[0][1][hd][mc] = (int8_t) (nonPVRed >= 1.0 ? floor(nonPVRed * int(ONE_PLY)) : 0);
+
+      Reductions[1][0][hd][mc] = Reductions[1][1][hd][mc];
+      Reductions[0][0][hd][mc] = Reductions[0][1][hd][mc];
+
+      if (Reductions[0][0][hd][mc] > 2 * ONE_PLY)
+          Reductions[0][0][hd][mc] += ONE_PLY;
   }
 
   // Init futility margins array
@@ -350,7 +359,9 @@ namespace {
             // research with bigger window until not failing high/low anymore.
             while (true)
             {
-                bestValue = search<Root>(pos, ss, alpha, beta, depth * ONE_PLY, false);
+                try {
+                    bestValue = search<Root>(pos, ss, alpha, beta, depth * ONE_PLY, false);
+                } catch (stop&) {}
 
                 // Bring to front the best move. It is critical that sorting is
                 // done with a stable algorithm because all the values but the first
@@ -535,10 +546,13 @@ namespace {
     if (PvNode && thisThread->maxPly < ss->ply)
         thisThread->maxPly = ss->ply;
 
+    if (Signals.stop || thisThread->cutoff_occurred())
+        throw stop();
+
     if (!RootNode)
     {
         // Step 2. Check for aborted search and immediate draw
-        if (Signals.stop || pos.is_draw() || ss->ply > MAX_PLY)
+        if (pos.is_draw() || ss->ply > MAX_PLY)
             return DrawValue[pos.side_to_move()];
 
         // Step 3. Mate distance pruning. Even if we mate at the next move our score
@@ -769,7 +783,10 @@ moves_loop: // When in check and at SpNode search starts from here
     MovePicker mp(pos, ttMove, depth, History, countermoves, ss);
     CheckInfo ci(pos);
     value = bestValue; // Workaround a bogus 'uninitialized' warning under gcc
-    improving = ss->staticEval >= (ss-2)->staticEval;
+    improving =   ss->staticEval >= (ss-2)->staticEval
+               || ss->staticEval == VALUE_NONE
+               ||(ss-2)->staticEval == VALUE_NONE;
+
     singularExtensionNode =   !RootNode
                            && !SpNode
                            &&  depth >= (PvNode ? 6 * ONE_PLY : 8 * ONE_PLY)
@@ -878,7 +895,7 @@ moves_loop: // When in check and at SpNode search starts from here
           // Value based pruning
           // We illogically ignore reduction condition depth >= 3*ONE_PLY for predicted depth,
           // but fixing this made program slightly weaker.
-          Depth predictedDepth = newDepth - reduction<PvNode>(depth, moveCount);
+          Depth predictedDepth = newDepth - reduction<PvNode>(improving, depth, moveCount);
           futilityValue =  ss->staticEval + ss->evalMargin + futility_margin(predictedDepth, moveCount)
                          + Gains[pos.piece_moved(move)][to_sq(move)];
 
@@ -937,7 +954,7 @@ moves_loop: // When in check and at SpNode search starts from here
           &&  move != ss->killers[0]
           &&  move != ss->killers[1])
       {
-          ss->reduction = reduction<PvNode>(depth, moveCount);
+          ss->reduction = reduction<PvNode>(improving, depth, moveCount);
 
           if (!PvNode && cutNode)
               ss->reduction += ONE_PLY;
@@ -989,13 +1006,6 @@ moves_loop: // When in check and at SpNode search starts from here
           bestValue = splitPoint->bestValue;
           alpha = splitPoint->alpha;
       }
-
-      // Finished searching the move. If Signals.stop is true, the search
-      // was aborted because the user interrupted the search or because we
-      // ran out of time. In this case, the return value of the search cannot
-      // be trusted, and we don't update the best move and/or PV.
-      if (Signals.stop || thisThread->cutoff_occurred())
-          return value; // To avoid returning VALUE_INFINITE
 
       if (RootNode)
       {
@@ -1687,21 +1697,26 @@ void Thread::idle_loop() {
 
           activePosition = &pos;
 
-          switch (sp->nodeType) {
-          case Root:
-              search<SplitPointRoot>(pos, ss, sp->alpha, sp->beta, sp->depth, sp->cutNode);
-              break;
-          case PV:
-              search<SplitPointPV>(pos, ss, sp->alpha, sp->beta, sp->depth, sp->cutNode);
-              break;
-          case NonPV:
-              search<SplitPointNonPV>(pos, ss, sp->alpha, sp->beta, sp->depth, sp->cutNode);
-              break;
-          default:
-              assert(false);
-          }
+          try {
+              switch (sp->nodeType) {
+              case Root:
+                  search<SplitPointRoot>(pos, ss, sp->alpha, sp->beta, sp->depth, sp->cutNode);
+                  break;
+              case PV:
+                  search<SplitPointPV>(pos, ss, sp->alpha, sp->beta, sp->depth, sp->cutNode);
+                  break;
+              case NonPV:
+                  search<SplitPointNonPV>(pos, ss, sp->alpha, sp->beta, sp->depth, sp->cutNode);
+                  break;
+              default:
+                  assert(false);
+              }
 
-          assert(searching);
+              assert(searching);
+          }
+          catch (stop&) {
+              sp->mutex.lock(); // Exception is thrown out of lock
+          }
 
           searching = false;
           activePosition = NULL;
