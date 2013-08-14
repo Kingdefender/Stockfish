@@ -526,9 +526,29 @@ Value do_evaluate(const Position& pos, Value& margin) {
                  && !more_than_one(BetweenBB[s][pos.king_square(Them)] & pos.pieces()))
                  score += BishopPin;
 
-        // Penalty for bishop with same coloured pawns
+        // Penalty for bishop with same coloured pawns, bonus for king fianchetto.
+        // Bonus for a bishop attacking squares in front or behind pawns (potentially weak squares).
         if (Piece == BISHOP)
+        {
             score -= BishopPawns * ei.pi->pawns_on_same_color_squares(Us, s);
+            Bitboard inFront = pos.pieces(Us, PAWN) <<  8 | pos.pieces(Us, PAWN) >>  8;
+            int goodCount = popcount<Max15>(b & inFront); // weak squares that are defended
+            score += make_score(4, 4) * goodCount;
+            
+            if (s == relative_square(Us, SQ_G2) || s == relative_square(Us, SQ_B2))
+            {
+                score += square_distance(pos.king_square(Us), s) == 1 && relative_rank(Us, pos.king_square(Us)) == RANK_1
+                       ? make_score(25, 0) : make_score(15, 0);
+                if (pos.pieces(Us, PAWN) & (s + pawn_push(Us)))
+                    score += make_score(5, 0);
+            } // A fianchettoed bishop bonus, larger if in front of a castle
+            
+            if (goodCount)
+            {
+                inFront = (pos.pieces(Them, PAWN) <<  8 | pos.pieces(Them, PAWN) >>  8) & ~pos.pieces(Us, PAWN);
+                score += make_score(2, 2) * popcount<Max15>(b & inFront);
+            } // opponent weak squares that are attacked
+        } // Good/Bad bishop code
 
         if (Piece == BISHOP || Piece == KNIGHT)
         {
