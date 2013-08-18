@@ -71,7 +71,7 @@ namespace {
   inline Value futility_margin(Depth d, bool negativeSEE, int mn) {
 
     return d < 7 * ONE_PLY ? (negativeSEE ? FutilityMargins[std::max(int(d), 1)][std::min(mn, 63)] - Value(39)
-	                                        : FutilityMargins[std::max(int(d), 1)][std::min(mn, 63)])
+                                          : FutilityMargins[std::max(int(d), 1)][std::min(mn, 63)])
                            : 2 * VALUE_INFINITE;
   }
 
@@ -895,12 +895,13 @@ moves_loop: // When in check and at SpNode search starts from here
 
           if (futilityValue < beta)
           {
-              bestValue = std::max(bestValue, futilityValue);
+              if (!negativeSee)
+                  bestValue = std::max(bestValue, futilityValue);
 
               if (SpNode)
               {
                   splitPoint->mutex.lock();
-                  if (bestValue > splitPoint->bestValue)
+                  if (bestValue > splitPoint->bestValue && !negativeSee)
                       splitPoint->bestValue = bestValue;
               }
               continue;
@@ -910,14 +911,10 @@ moves_loop: // When in check and at SpNode search starts from here
           if (   predictedDepth < (improving ? 2 : 4) * ONE_PLY
               && negativeSee)
           {
-              bestValue = std::max(bestValue, futilityValue);
               
               if (SpNode)
-              {
                   splitPoint->mutex.lock();
-                  if (bestValue > splitPoint->bestValue)
-                      splitPoint->bestValue = bestValue;
-              }
+                  
               continue;
           }
 
