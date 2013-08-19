@@ -907,7 +907,7 @@ moves_loop: // When in check and at SpNode search starts from here
           }
 
           // Prune moves with negative SEE at low depths
-          if (   predictedDepth < (improving ? 2 : 4) * ONE_PLY
+          if (   predictedDepth < (improving ? 2 : 3) * ONE_PLY
               && negativeSee)
           {
               
