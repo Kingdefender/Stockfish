@@ -68,9 +68,10 @@ namespace {
   Value FutilityMargins[16][64]; // [depth][moveNumber]
   int FutilityMoveCounts[2][32]; // [improving][depth]
 
-  inline Value futility_margin(Depth d, int mn) {
+  inline Value futility_margin(Depth d, bool negativeSEE, int mn) {
 
-    return d < 7 * ONE_PLY ? FutilityMargins[std::max(int(d), 1)][std::min(mn, 63)]
+    return d < 7 * ONE_PLY ? (negativeSEE ? FutilityMargins[std::max(int(d), 1)][std::min(mn, 63)] - Value(39)
+                                          : FutilityMargins[std::max(int(d), 1)][std::min(mn, 63)])
                            : 2 * VALUE_INFINITE;
   }
 
@@ -139,11 +140,10 @@ void Search::init() {
       Reductions[1][1][hd][mc] = (int8_t) (   pvRed >= 1.0 ? floor(   pvRed * int(ONE_PLY)) : 0);
       Reductions[0][1][hd][mc] = (int8_t) (nonPVRed >= 1.0 ? floor(nonPVRed * int(ONE_PLY)) : 0);
 
-      Reductions[1][0][hd][mc] = Reductions[1][1][hd][mc];
-      Reductions[0][0][hd][mc] = Reductions[0][1][hd][mc];
-
-      if (Reductions[0][0][hd][mc] > 2 * ONE_PLY)
-          Reductions[0][0][hd][mc] += ONE_PLY;
+      double    pvRedMore = log(double(hd)) * log(double(mc)) / 2.0;
+      double nonPVRedMore = 0.33 + log(double(hd)) * log(double(mc)) / 1.25;
+      Reductions[1][0][hd][mc] = (int8_t) (   pvRed >= 1.0 ? floor(   pvRedMore * int(ONE_PLY)) : 0);
+      Reductions[0][0][hd][mc] = (int8_t) (nonPVRed >= 1.0 ? floor(nonPVRedMore * int(ONE_PLY)) : 0);
   }
 
   // Init futility margins array
@@ -153,8 +153,9 @@ void Search::init() {
   // Init futility move count array
   for (d = 0; d < 32; d++)
   {
-      FutilityMoveCounts[0][d] = int(3.001 + 0.3 * pow(double(d       ), 1.8)) * (d < 5 ? 4 : 3) / 4;
-      FutilityMoveCounts[1][d] = int(3.001 + 0.3 * pow(double(d + 0.98), 1.8));
+      FutilityMoveCounts[1][d] = int(3.001 + 0.3 * pow(double(d), 1.8));
+      FutilityMoveCounts[0][d] = d < 5 ? FutilityMoveCounts[1][d]
+                                       : 3 * FutilityMoveCounts[1][d] / 4;
   }
 }
 
@@ -654,11 +655,11 @@ namespace {
     if (   !PvNode
         && !ss->skipNullMove
         &&  depth < 4 * ONE_PLY
-        &&  eval - futility_margin(depth, (ss-1)->futilityMoveCount) >= beta
+        &&  eval - futility_margin(depth, false, (ss-1)->futilityMoveCount) >= beta
         &&  abs(beta) < VALUE_MATE_IN_MAX_PLY
         &&  abs(eval) < VALUE_KNOWN_WIN
         &&  pos.non_pawn_material(pos.side_to_move()))
-        return eval - futility_margin(depth, (ss-1)->futilityMoveCount);
+        return eval - futility_margin(depth, false, (ss-1)->futilityMoveCount);
 
     // Step 8. Null move search with verification search (is omitted in PV nodes)
     if (   !PvNode
@@ -774,9 +775,9 @@ moves_loop: // When in check and at SpNode search starts from here
     MovePicker mp(pos, ttMove, depth, History, countermoves, ss);
     CheckInfo ci(pos);
     value = bestValue; // Workaround a bogus 'uninitialized' warning under gcc
-    improving =   ss->staticEval >= (ss-2)->staticEval
-               || ss->staticEval == VALUE_NONE
-               ||(ss-2)->staticEval == VALUE_NONE;
+    improving =    ss->staticEval >= (ss-2)->staticEval
+               &&  ss->staticEval != VALUE_NONE
+               && (ss-2)->staticEval != VALUE_NONE;
 
     singularExtensionNode =   !RootNode
                            && !SpNode
@@ -887,25 +888,27 @@ moves_loop: // When in check and at SpNode search starts from here
           // We illogically ignore reduction condition depth >= 3*ONE_PLY for predicted depth,
           // but fixing this made program slightly weaker.
           Depth predictedDepth = newDepth - reduction<PvNode>(improving, depth, moveCount);
-          futilityValue =  ss->staticEval + ss->evalMargin + futility_margin(predictedDepth, moveCount)
+          bool  negativeSee = pos.see_sign(move) < 0;
+          futilityValue =  ss->staticEval + ss->evalMargin + futility_margin(predictedDepth, negativeSee, moveCount)
                          + Gains[pos.piece_moved(move)][to_sq(move)];
 
           if (futilityValue < beta)
           {
-              bestValue = std::max(bestValue, futilityValue);
+              if (!negativeSee)
+                  bestValue = std::max(bestValue, futilityValue);
 
               if (SpNode)
               {
                   splitPoint->mutex.lock();
-                  if (bestValue > splitPoint->bestValue)
+                  if (bestValue > splitPoint->bestValue && !negativeSee)
                       splitPoint->bestValue = bestValue;
               }
               continue;
           }
 
           // Prune moves with negative SEE at low depths
-          if (   predictedDepth < 4 * ONE_PLY
-              && pos.see_sign(move) < 0)
+          if (   predictedDepth < (improving ? 2 : 3) * ONE_PLY
+              && negativeSee)
           {
               if (SpNode)
                   splitPoint->mutex.lock();
@@ -1139,7 +1142,7 @@ moves_loop: // When in check and at SpNode search starts from here
     Key posKey;
     Move ttMove, move, bestMove;
     Value bestValue, value, ttValue, futilityValue, futilityBase, oldAlpha;
-    bool givesCheck, evasionPrunable;
+    bool givesCheck, enoughMaterial, evasionPrunable;
     Depth ttDepth;
 
     // To flag BOUND_EXACT a node with eval above alpha and no available moves
@@ -1181,6 +1184,7 @@ moves_loop: // When in check and at SpNode search starts from here
     {
         ss->staticEval = ss->evalMargin = VALUE_NONE;
         bestValue = futilityBase = -VALUE_INFINITE;
+        enoughMaterial = false;
     }
     else
     {
@@ -1208,6 +1212,7 @@ moves_loop: // When in check and at SpNode search starts from here
             alpha = bestValue;
 
         futilityBase = ss->staticEval + ss->evalMargin + Value(128);
+        enoughMaterial = pos.non_pawn_material(pos.side_to_move());
     }
 
     // Initialize a MovePicker object for the current position, and prepare
@@ -1235,9 +1240,11 @@ moves_loop: // When in check and at SpNode search starts from here
       {
           futilityValue =  futilityBase
                          + PieceValue[EG][pos.piece_on(to_sq(move))]
-                         + (type_of(move) == ENPASSANT ? PawnValueEg : VALUE_ZERO);
+                         + (type_of(move) == ENPASSANT ? PawnValueEg : VALUE_ZERO)
+                         - (ss->staticEval >= (ss-2)->staticEval ? Value(39) : Value(55));
 
-          if (futilityValue < beta)
+          if (    futilityValue < beta
+              &&  enoughMaterial)
           {
               bestValue = std::max(bestValue, futilityValue);
               continue;
