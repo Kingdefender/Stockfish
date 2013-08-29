@@ -68,9 +68,10 @@ namespace {
   Value FutilityMargins[16][64]; // [depth][moveNumber]
   int FutilityMoveCounts[2][32]; // [improving][depth]
 
-  inline Value futility_margin(Depth d, int mn) {
+  inline Value futility_margin(Depth d, bool negativeSEE, int mn) {
 
-    return d < 7 * ONE_PLY ? FutilityMargins[std::max(int(d), 1)][std::min(mn, 63)]
+    return d < 7 * ONE_PLY ? (negativeSEE ? FutilityMargins[std::max(int(d), 1)][std::min(mn, 63)] - Value(39 + int(d) * int(d))
+                                          : FutilityMargins[std::max(int(d), 1)][std::min(mn, 63)])
                            : 2 * VALUE_INFINITE;
   }
 
@@ -148,7 +149,8 @@ void Search::init() {
 
   // Init futility margins array
   for (d = 1; d < 16; d++) for (mc = 0; mc < 64; mc++)
-      FutilityMargins[d][mc] = Value(112 * int(log(double(d * d) / 2) / log(2.0) + 1.001) - 8 * mc + 45);
+      FutilityMargins[d][mc] = Value((100 + (d * d)) * int(log(double(d * d) / 2) / log(2.0) + 1.001)
+                                      - ((d + 5) * (mc + 1)) + 45);
 
   // Init futility move count array
   for (d = 0; d < 32; d++)
@@ -655,11 +657,11 @@ namespace {
     if (   !PvNode
         && !ss->skipNullMove
         &&  depth < 4 * ONE_PLY
-        &&  eval - futility_margin(depth, (ss-1)->futilityMoveCount) >= beta
+        &&  eval - futility_margin(depth, false, (ss-1)->futilityMoveCount) >= beta
         &&  abs(beta) < VALUE_MATE_IN_MAX_PLY
         &&  abs(eval) < VALUE_KNOWN_WIN
         &&  pos.non_pawn_material(pos.side_to_move()))
-        return eval - futility_margin(depth, (ss-1)->futilityMoveCount);
+        return eval - futility_margin(depth, false, (ss-1)->futilityMoveCount);
 
     // Step 8. Null move search with verification search (is omitted in PV nodes)
     if (   !PvNode
@@ -888,7 +890,8 @@ moves_loop: // When in check and at SpNode search starts from here
           // We illogically ignore reduction condition depth >= 3*ONE_PLY for predicted depth,
           // but fixing this made program slightly weaker.
           Depth predictedDepth = newDepth - reduction<PvNode>(improving, depth, moveCount);
-          futilityValue =  ss->staticEval + ss->evalMargin + futility_margin(predictedDepth, moveCount)
+          bool  negativeSee = pos.see_sign(move) < 0;
+          futilityValue =  ss->staticEval + ss->evalMargin + futility_margin(predictedDepth, negativeSee, moveCount)
                          + Gains[pos.piece_moved(move)][to_sq(move)];
 
           if (futilityValue < beta)
@@ -905,8 +908,8 @@ moves_loop: // When in check and at SpNode search starts from here
           }
 
           // Prune moves with negative SEE at low depths
-          if (   predictedDepth < 4 * ONE_PLY
-              && pos.see_sign(move) < 0)
+          if (   predictedDepth < (improving ? 2 : 3) * ONE_PLY
+              && negativeSee)
           {
               if (SpNode)
                   splitPoint->mutex.lock();
