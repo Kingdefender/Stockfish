@@ -941,16 +941,15 @@ moves_loop: // When in check and at SpNode search starts from here
       if (    depth > 3 * ONE_PLY
           && !pvMove
           && !captureOrPromotion
-          &&  move != ttMove
-          &&  move != ss->killers[0]
-          &&  move != ss->killers[1])
+          &&  move != ttMove)
       {
           ss->reduction = reduction<PvNode>(improving, depth, moveCount);
 
           if (!PvNode && cutNode)
               ss->reduction += ONE_PLY;
 
-          if (move == countermoves[0] || move == countermoves[1])
+          if (   move == countermoves[0] || move == countermoves[1]
+              || move == ss->killers[0]  || move == ss->killers[1])
               ss->reduction = std::max(DEPTH_ZERO, ss->reduction-ONE_PLY);
 
           Depth d = std::max(newDepth - ss->reduction, ONE_PLY);
