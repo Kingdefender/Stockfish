@@ -70,7 +70,8 @@ namespace {
 
   inline Value futility_margin(Depth d, bool negativeSEE, int mn) {
 
-    return d < 7 * ONE_PLY ? (negativeSEE ? FutilityMargins[std::max(int(d), 1)][std::min(mn, 63)] - Value(39 + int(d) * int(d))
+    return d < 7 * ONE_PLY ? (negativeSEE ? FutilityMargins[std::max(int(d), 1)][std::min(mn, 63)]
+                                          - Value(int(d + 5) * (mn + 1))
                                           : FutilityMargins[std::max(int(d), 1)][std::min(mn, 63)])
                            : 2 * VALUE_INFINITE;
   }
