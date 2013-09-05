@@ -507,6 +507,7 @@ namespace {
     Value eval, nullValue, futilityValue;
     bool inCheck, givesCheck, pvMove, singularExtensionNode, improving;
     bool captureOrPromotion, dangerous, doFullDepthSearch;
+    bool threatExtension = false;
     int moveCount, quietCount;
 
     // Step 1. Initialize node
@@ -706,16 +707,23 @@ namespace {
             // The null move failed low, which means that we may be faced with
             // some kind of threat. If the previous move was reduced, check if
             // the move that refuted the null move was somehow connected to the
-            // move which was reduced. If a connection is found, return a fail
-            // low score (which will cause the reduced move to fail high in the
-            // parent node, which will trigger a re-search with full depth).
+            // move which was reduced. If a connection is found, and we expect
+            // to fail low with a certain margin below alpha, return a fail low
+            // score (which will cause the reduced move to fail high in the
+            // parent node, which will trigger a re-search with full depth). If 
+            // the threat move fails this second condition we still do not reduce
+            // the node in LMR because the parent node was already reduced.
             threatMove = (ss+1)->currentMove;
 
             if (   depth < 5 * ONE_PLY
                 && (ss-1)->reduction
-                && threatMove != MOVE_NONE
-                && allows(pos, (ss-1)->currentMove, threatMove))
-                return alpha;
+                && threatMove != MOVE_NONE)
+            {
+                if (   nullValue <= alpha - Value(0x50)
+                    && allows(pos, (ss-1)->currentMove, threatMove))
+                    return alpha;
+                threatExtension = true; // No real extension but switches off LMR
+            }
         }
     }
 
@@ -941,6 +949,7 @@ moves_loop: // When in check and at SpNode search starts from here
           && !pvMove
           && !captureOrPromotion
           &&  move != ttMove
+          && !threatExtension
           &&  move != ss->killers[0]
           &&  move != ss->killers[1])
       {
