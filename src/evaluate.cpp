@@ -400,7 +400,12 @@ Value do_evaluate(const Position& pos, Value& margin) {
            sf = ScaleFactor(50);
   }
 
-  margin = margins[pos.side_to_move()];
+  // Compute an error margin for the evaluation and interpolate
+  // both between the middle game and the endgame score
+  Value MgMargin = Value(std::abs(mg_value(score) - mg_value(ei.mi->material_value()))/4)
+                 + Value(std::abs(margins[pos.side_to_move()] - mg_value(ei.mi->material_value())));
+  Value EgMargin = Value(std::abs(eg_value(score) - eg_value(ei.mi->material_value()))/4);
+  margin  = interpolate(make_score(MgMargin, EgMargin), ei.mi->game_phase(), sf);
   Value v = interpolate(score, ei.mi->game_phase(), sf);
 
   // In case of tracing add all single evaluation contributions for both white and black
