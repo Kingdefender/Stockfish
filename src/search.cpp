@@ -833,9 +833,8 @@ moves_loop: // When in check and at SpNode search starts from here
       // Step 12. Extend checks and, in PV nodes, also dangerous moves
       if (PvNode && dangerous)
           ext = ONE_PLY;
-
-      else if (givesCheck && pos.see_sign(move) >= 0)
-          ext = inCheck || ss->staticEval <= alpha ? ONE_PLY : ONE_PLY / 2;
+      else if (givesCheck && ss->staticEval <= alpha && pos.see_sign(move) >= 0)
+          ext = ONE_PLY / 2;
 
       // Singular extension search. If all moves but one fail low on a search of
       // (alpha-s, beta-s), and just one fails high on (alpha, beta), then that move
