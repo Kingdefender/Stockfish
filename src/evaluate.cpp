@@ -788,6 +788,7 @@ Value do_evaluate(const Position& pos, Value& margin) {
     const Color Them = (Us == WHITE ? BLACK : WHITE);
 
     Bitboard b, squaresToQueen, defendedSquares, unsafeSquares, supportingPawns;
+    bool rookqueenSupport = false;
     Score score = SCORE_ZERO;
 
     b = ei.pi->passed_pawns(Us);
@@ -795,6 +796,7 @@ Value do_evaluate(const Position& pos, Value& margin) {
     while (b)
     {
         Square s = pop_lsb(&b);
+        Square blockSq = s + pawn_push(Us);
 
         assert(pos.pawn_is_passed(Us, s));
 
@@ -807,8 +809,6 @@ Value do_evaluate(const Position& pos, Value& margin) {
 
         if (rr)
         {
-            Square blockSq = s + pawn_push(Us);
-
             // Adjust bonus based on kings proximity
             ebonus += Value(square_distance(pos.king_square(Them), blockSq) * 5 * rr);
             ebonus -= Value(square_distance(pos.king_square(Us), blockSq) * 2 * rr);
@@ -833,7 +833,10 @@ Value do_evaluate(const Position& pos, Value& margin) {
 
                 if (    unlikely(forward_bb(Them, s) & pos.pieces(Us, ROOK, QUEEN))
                     && (forward_bb(Them, s) & pos.pieces(Us, ROOK, QUEEN) & pos.attacks_from<ROOK>(s)))
+                {
                     defendedSquares = squaresToQueen;
+                    rookqueenSupport = true;
+                }
                 else
                     defendedSquares = squaresToQueen & ei.attackedBy[Us][ALL_PIECES];
 
@@ -871,10 +874,13 @@ Value do_evaluate(const Position& pos, Value& margin) {
         if (file_of(s) == FILE_A || file_of(s) == FILE_H)
         {
             if (pos.non_pawn_material(Them) <= KnightValueMg)
-                ebonus += ebonus / 4;
-
+                ebonus += (rookqueenSupport ? ebonus / 3 : ebonus / 4)
+				                + Value(r * (square_distance(pos.king_square(Them), blockSq)
+				                - square_distance(pos.king_square(Us), blockSq)));
             else if (pos.pieces(Them, ROOK, QUEEN))
-                ebonus -= ebonus / 4;
+                ebonus -= (rookqueenSupport ? ebonus / 6 : ebonus / 4)
+				                - Value(r * (square_distance(pos.king_square(Them), blockSq)
+				                - square_distance(pos.king_square(Us), blockSq)));
         }
 
         // Increase the bonus if we have more non-pawn pieces
