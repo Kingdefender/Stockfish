@@ -874,13 +874,13 @@ Value do_evaluate(const Position& pos, Value& margin) {
         if (file_of(s) == FILE_A || file_of(s) == FILE_H)
         {
             if (pos.non_pawn_material(Them) <= KnightValueMg)
-                ebonus += (rookqueenSupport ? ebonus / 3 : ebonus / 4)
-				                + Value(r * (square_distance(pos.king_square(Them), blockSq)
-				                - square_distance(pos.king_square(Us), blockSq)));
+                ebonus += ebonus / 4 + (rookqueenSupport ? Value(rr) : Value(0))
+				     + Value(rr * (square_distance(pos.king_square(Them), blockSq)
+				           - square_distance(pos.king_square(Us), blockSq)));
             else if (pos.pieces(Them, ROOK, QUEEN))
-                ebonus -= (rookqueenSupport ? ebonus / 6 : ebonus / 4)
-				                - Value(r * (square_distance(pos.king_square(Them), blockSq)
-				                - square_distance(pos.king_square(Us), blockSq)));
+                ebonus -= ebonus / 4 - (rookqueenSupport ? Value(rr) : Value(0))
+				     - Value(rr * (square_distance(pos.king_square(Them), blockSq)
+				           - square_distance(pos.king_square(Us), blockSq)));
         }
 
         // Increase the bonus if we have more non-pawn pieces
