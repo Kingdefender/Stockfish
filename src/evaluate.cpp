@@ -160,11 +160,16 @@ namespace {
   const Score ThreatenedByPawn[] = {
     S(0, 0), S(0, 0), S(56, 70), S(56, 70), S(76, 99), S(86, 118)
   };
+  
+  // KingPin[PieceType] contains a bonus for sliding pieces pinning
+  // a piece on the king or x-ray attack the king through own piece.
+  const Score KingPin[] = {
+    S(0, 0), S(0, 0), S(0, 0), S(66, 11), S(66, 11), S(66, 11)
+  };
 
   #undef S
 
   const Score Tempo            = make_score(24, 11);
-  const Score BishopPin        = make_score(66, 11);
   const Score RookOn7th        = make_score(11, 20);
   const Score QueenOn7th       = make_score( 3,  8);
   const Score RookOnPawn       = make_score(10, 28);
@@ -515,12 +520,12 @@ Value do_evaluate(const Position& pos, Value& margin) {
         if (ei.attackedBy[Them][PAWN] & s)
             score -= ThreatenedByPawn[Piece];
 
-        // Otherwise give a bonus if we are a bishop and can pin a piece or can
+        // Otherwise give a bonus if we can pin a piece or can
         // give a discovered check through an x-ray attack.
-        else if (    Piece == BISHOP
+        else if (   (Piece == BISHOP || Piece == ROOK || Piece == QUEEN)
                  && (PseudoAttacks[Piece][pos.king_square(Them)] & s)
                  && !more_than_one(BetweenBB[s][pos.king_square(Them)] & pos.pieces()))
-                 score += BishopPin;
+                 score += KingPin[Piece];
 
         // Penalty for bishop with same coloured pawns
         if (Piece == BISHOP)
