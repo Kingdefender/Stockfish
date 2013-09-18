@@ -90,9 +90,9 @@ namespace {
     const Square Left  = (Us == WHITE ? DELTA_NW : DELTA_SE);
 
     Bitboard b;
-    Square s;
+    Square s, blockSq;
     File f;
-    bool passed, isolated, doubled, opposed, chain, backward, candidate;
+    bool passed, isolated, doubled, blocked, opposed, chain, backward, candidate;
     Score value = SCORE_ZERO;
     const Square* pl = pos.list<PAWN>(Us);
 
@@ -110,7 +110,8 @@ namespace {
     while ((s = *pl++) != SQ_NONE)
     {
         assert(pos.piece_on(s) == make_piece(Us, PAWN));
-
+        
+        blockSq = s + pawn_push(Us);
         f = file_of(s);
 
         // This file cannot be semi-open
@@ -124,7 +125,8 @@ namespace {
         chain    =   ourPawns   & adjacent_files_bb(f) & b;
         isolated = !(ourPawns   & adjacent_files_bb(f));
         doubled  =   ourPawns   & forward_bb(Us, s);
-        opposed  =   theirPawns & forward_bb(Us, s);
+        blocked  =   theirPawns & blockSq;
+        opposed  =   blocked || (theirPawns & forward_bb(Us, s));
         passed   = !(theirPawns & passed_pawn_mask(Us, s));
 
         // Test for backward pawn.
@@ -137,16 +139,21 @@ namespace {
             backward = false;
         else
         {
-            // We now know that there are no friendly pawns beside or behind this
-            // pawn on adjacent files. We now check whether the pawn is
-            // backward by looking in the forward direction on the adjacent
-            // files, and picking the closest pawn there.
-            b = pawn_attack_span(Us, s) & (ourPawns | theirPawns);
-            b = pawn_attack_span(Us, s) & rank_bb(backmost_sq(Us, b));
+            if (blocked)
+                backward = true;
+            else
+            {
+                // We now know that there are no friendly pawns beside or behind this
+                // pawn on adjacent files and that the pawn can advance. We now check
+                // whether the pawn is backward by looking in the forward direction
+                // on the adjacent files, and picking the closest pawn there.
+                b = pawn_attack_span(Us, s) & (ourPawns | theirPawns);
+                b = pawn_attack_span(Us, s) & rank_bb(backmost_sq(Us, b));
 
-            // If we have an enemy pawn in the same or next rank, the pawn is
-            // backward because it cannot advance without being captured.
-            backward = (b | shift_bb<Up>(b)) & theirPawns;
+                // If we have an enemy pawn in the same or next rank, the pawn is
+                // backward because it cannot advance without being captured.
+                backward = (b | shift_bb<Up>(b)) & theirPawns;
+            }
         }
 
         assert(opposed | passed | (pawn_attack_span(Us, s) & theirPawns));
