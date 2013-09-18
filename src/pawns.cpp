@@ -110,7 +110,8 @@ namespace {
     while ((s = *pl++) != SQ_NONE)
     {
         assert(pos.piece_on(s) == make_piece(Us, PAWN));
-
+        
+        blockSq = s + pawn_push(Us);
         f = file_of(s);
 
         // This file cannot be semi-open
