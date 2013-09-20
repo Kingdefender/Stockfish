@@ -63,9 +63,10 @@ namespace {
     S(34,68), S(83,166), S(0, 0), S( 0, 0)
   };
 
-  // Weakness of our pawn shelter in front of the king indexed by [rank]
-  const Value ShelterWeakness[RANK_NB] =
-  { V(100), V(0), V(27), V(73), V(92), V(101), V(101) };
+  // Weakness of our pawn shelter in front of the king indexed by [king pawn][rank]
+  const Value ShelterWeakness[2][RANK_NB] =
+  { { V(141), V(0), V(38), V(102), V(128), V(141), V(141) },
+    { V(100), V(0), V(27), V( 73), V( 92), V(101), V(101) } };
 
   // Danger of enemy pawns moving toward our king indexed by
   // [no friendly pawn | pawn unblocked | pawn blocked][rank of enemy pawn]
@@ -231,7 +232,7 @@ Value Entry::shelter_storm(const Position& pos, Square ksq) {
   {
       b = ourPawns & FileBB[f];
       rkUs = b ? relative_rank(Us, backmost_sq(Us, b)) : RANK_1;
-      safety -= ShelterWeakness[rkUs];
+      safety -= ShelterWeakness[f != kf][rkUs];
 
       b  = theirPawns & FileBB[f];
       rkThem = b ? relative_rank(Us, frontmost_sq(Them, b)) : RANK_1;
