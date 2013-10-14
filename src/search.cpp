@@ -84,7 +84,7 @@ namespace {
 
   size_t PVSize, PVIdx;
   TimeManager TimeMgr;
-  float BestMoveChanges;
+  double BestMoveChanges;
   Value DrawValue[COLOR_NB];
   HistoryStats History;
   GainsStats Gains;
@@ -131,7 +131,7 @@ void Search::init() {
   int mc; // moveCount
 
   // Init reductions array
-  for (hd = 1; hd < 64; hd++) for (mc = 1; mc < 64; mc++)
+  for (hd = 1; hd < 64; ++hd) for (mc = 1; mc < 64; ++mc)
   {
       double    pvRed = log(double(hd)) * log(double(mc)) / 3.0;
       double nonPVRed = 0.33 + log(double(hd)) * log(double(mc)) / 2.25;
@@ -143,14 +143,17 @@ void Search::init() {
 
       if (Reductions[0][0][hd][mc] > 2 * ONE_PLY)
           Reductions[0][0][hd][mc] += ONE_PLY;
+
+      else if (Reductions[0][0][hd][mc] > 1 * ONE_PLY)
+          Reductions[0][0][hd][mc] += ONE_PLY / 2;
   }
 
   // Init futility margins array
-  for (d = 1; d < 16; d++) for (mc = 0; mc < 64; mc++)
+  for (d = 1; d < 16; ++d) for (mc = 0; mc < 64; ++mc)
       FutilityMargins[d][mc] = Value(112 * int(log(double(d * d) / 2) / log(2.0) + 1.001) - 8 * mc + 45);
 
   // Init futility move count array
-  for (d = 0; d < 32; d++)
+  for (d = 0; d < 32; ++d)
   {
       FutilityMoveCounts[0][d] = int(3 + 0.3 * pow(double(d       ), 1.8)) * 3/4 + (2 < d && d < 5);
       FutilityMoveCounts[1][d] = int(3 + 0.3 * pow(double(d + 0.98), 1.8));
@@ -333,7 +336,7 @@ namespace {
     while (++depth <= MAX_PLY && !Signals.stop && (!Limits.depth || depth <= Limits.depth))
     {
         // Age out PV variability metric
-        BestMoveChanges *= 0.8f;
+        BestMoveChanges *= 0.8;
 
         // Save last iteration's scores before first PV line is searched and all
         // the move scores but the (new) PV are set to -VALUE_INFINITE.
@@ -341,7 +344,7 @@ namespace {
             RootMoves[i].prevScore = RootMoves[i].score;
 
         // MultiPV loop. We perform a full root search for each PV line
-        for (PVIdx = 0; PVIdx < PVSize; PVIdx++)
+        for (PVIdx = 0; PVIdx < PVSize; ++PVIdx)
         {
             // Reset aspiration window starting size
             if (depth >= 5)
@@ -810,7 +813,7 @@ moves_loop: // When in check and at SpNode search starts from here
           splitPoint->mutex.unlock();
       }
       else
-          moveCount++;
+          ++moveCount;
 
       if (RootNode)
       {
@@ -919,7 +922,7 @@ moves_loop: // When in check and at SpNode search starts from here
       // Check for legality only before to do the move
       if (!RootNode && !SpNode && !pos.legal(move, ci.pinned))
       {
-          moveCount--;
+          --moveCount;
           continue;
       }
 
@@ -1017,7 +1020,7 @@ moves_loop: // When in check and at SpNode search starts from here
               // iteration. This information is used for time management: When
               // the best move changes frequently, we allocate some more time.
               if (!pvMove)
-                  BestMoveChanges++;
+                  ++BestMoveChanges;
           }
           else
               // All other moves but the PV are set to the lowest value, this
@@ -1188,6 +1191,11 @@ moves_loop: // When in check and at SpNode search starts from here
             if (  (ss->staticEval = bestValue = tte->eval_value()) == VALUE_NONE
                 ||(ss->evalMargin = tte->eval_margin()) == VALUE_NONE)
                 ss->staticEval = bestValue = evaluate(pos, ss->evalMargin);
+
+            // Can ttValue be used as a better position evaluation?
+            if (ttValue != VALUE_NONE)
+                if (tte->bound() & (ttValue > bestValue ? BOUND_LOWER : BOUND_UPPER))
+                    bestValue = ttValue;
         }
         else
             ss->staticEval = bestValue = evaluate(pos, ss->evalMargin);
@@ -1205,7 +1213,7 @@ moves_loop: // When in check and at SpNode search starts from here
         if (PvNode && bestValue > alpha)
             alpha = bestValue;
 
-        futilityBase = ss->staticEval + ss->evalMargin + Value(128);
+        futilityBase = bestValue + ss->evalMargin + Value(128);
     }
 
     // Initialize a MovePicker object for the current position, and prepare
@@ -1443,7 +1451,7 @@ moves_loop: // When in check and at SpNode search starts from here
     static RKISS rk;
 
     // PRNG sequence should be not deterministic
-    for (int i = Time::now() % 50; i > 0; i--)
+    for (int i = Time::now() % 50; i > 0; --i)
         rk.rand<unsigned>();
 
     // RootMoves are already sorted by score in descending order
@@ -1514,7 +1522,7 @@ moves_loop: // When in check and at SpNode search starts from here
           << " multipv "   << i + 1
           << " pv";
 
-        for (size_t j = 0; RootMoves[i].pv[j] != MOVE_NONE; j++)
+        for (size_t j = 0; RootMoves[i].pv[j] != MOVE_NONE; ++j)
             s <<  " " << move_to_uci(RootMoves[i].pv[j], pos.is_chess960());
     }
 
@@ -1730,7 +1738,7 @@ void check_time() {
       // Loop across all split points and sum accumulated SplitPoint nodes plus
       // all the currently active positions nodes.
       for (size_t i = 0; i < Threads.size(); ++i)
-          for (int j = 0; j < Threads[i]->splitPointsSize; j++)
+          for (int j = 0; j < Threads[i]->splitPointsSize; ++j)
           {
               SplitPoint& sp = Threads[i]->splitPoints[j];
 
