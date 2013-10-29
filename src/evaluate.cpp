@@ -172,6 +172,7 @@ namespace {
   const Score RookOpenFile     = make_score(43, 21);
   const Score RookSemiopenFile = make_score(19, 10);
   const Score BishopPawns      = make_score( 8, 12);
+  const Score KnightPawns      = make_score( 8,  4);
   const Score MinorBehindPawn  = make_score(16,  0);
   const Score UndefendedMinor  = make_score(25, 10);
   const Score TrappedRook      = make_score(90,  0);
@@ -508,7 +509,9 @@ Value do_evaluate(const Position& pos, Value& margin) {
                 ei.kingAdjacentZoneAttacksCount[Us] += popcount<Max15>(bb);
         }
 
-        int mob = popcount<Piece == QUEEN ? Full : Max15>(b & mobilityArea);
+        int mob = Piece != QUEEN ? popcount<Max15>(b & mobilityArea)
+                                 : popcount<Full >(b & mobilityArea);
+
         mobility[Us] += MobilityBonus[Piece][mob];
 
         // Decrease score if we are attacked by an enemy pawn. Remaining part
@@ -526,6 +529,10 @@ Value do_evaluate(const Position& pos, Value& margin) {
         // Penalty for bishop with same coloured pawns
         if (Piece == BISHOP)
             score -= BishopPawns * ei.pi->pawns_on_same_color_squares(Us, s);
+
+        // Penalty for knight when there are few enemy pawns
+        if (Piece == KNIGHT)
+            score -= KnightPawns * std::max(5 - pos.count<PAWN>(Them), 0);
 
         if (Piece == BISHOP || Piece == KNIGHT)
         {
@@ -876,9 +883,7 @@ Value do_evaluate(const Position& pos, Value& margin) {
                 ebonus -= ebonus / 4;
         }
 
-        // Increase the bonus if we have more non-pawn pieces
-        if (pos.count<ALL_PIECES>(  Us) - pos.count<PAWN>(  Us) >
-            pos.count<ALL_PIECES>(Them) - pos.count<PAWN>(Them))
+        if (pos.count<PAWN>(Us) < pos.count<PAWN>(Them))
             ebonus += ebonus / 4;
 
         score += make_score(mbonus, ebonus);
