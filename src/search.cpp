@@ -502,6 +502,7 @@ namespace {
     Value eval, nullValue, futilityValue;
     bool inCheck, givesCheck, pvMove, singularExtensionNode, improving;
     bool captureOrPromotion, dangerous, doFullDepthSearch;
+    bool mate_threat = false;
     int moveCount, quietCount;
 
     // Step 1. Initialize node
@@ -513,6 +514,7 @@ namespace {
         splitPoint = ss->splitPoint;
         bestMove   = splitPoint->bestMove;
         threatMove = splitPoint->threatMove;
+        mate_threat = splitPoint->mate_threat;
         bestValue  = splitPoint->bestValue;
         tte = NULL;
         ttMove = excludedMove = MOVE_NONE;
@@ -704,6 +706,9 @@ namespace {
             // low score (which will cause the reduced move to fail high in the
             // parent node, which will trigger a re-search with full depth).
             threatMove = (ss+1)->currentMove;
+            
+            if (nullValue <= VALUE_MATED_IN_MAX_PLY)
+                mate_threat = true;
 
             if (   depth < 5 * ONE_PLY
                 && (ss-1)->reduction
@@ -822,7 +827,8 @@ moves_loop: // When in check and at SpNode search starts from here
       givesCheck = pos.gives_check(move, ci);
       dangerous =   givesCheck
                  || pos.passed_pawn_push(move)
-                 || type_of(move) == CASTLE;
+                 || type_of(move) == CASTLE
+                 || (threatMove && mate_threat && refutes(pos, move, threatMove));
 
       // Step 12. Extend checks
       if (givesCheck && pos.see_sign(move) >= 0)
@@ -931,6 +937,7 @@ moves_loop: // When in check and at SpNode search starts from here
       if (    depth >= 3 * ONE_PLY
           && !pvMove
           && !captureOrPromotion
+          && !(PvNode && dangerous)
           &&  move != ttMove
           &&  move != ss->killers[0]
           &&  move != ss->killers[1])
@@ -1051,8 +1058,8 @@ moves_loop: // When in check and at SpNode search starts from here
       {
           assert(bestValue < beta);
 
-          thisThread->split<FakeSplit>(pos, ss, alpha, beta, &bestValue, &bestMove,
-                                       depth, threatMove, moveCount, &mp, NT, cutNode);
+          thisThread->split<FakeSplit>(pos, ss, alpha, beta, &bestValue, &bestMove, depth,
+                                       threatMove, mate_threat, moveCount, &mp, NT, cutNode);
           if (bestValue >= beta)
               break;
       }
