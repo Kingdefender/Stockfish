@@ -391,7 +391,7 @@ namespace {
                 else
                     break;
 
-                delta += delta / 2;
+                delta += delta;
 
                 assert(alpha >= -VALUE_INFINITE && beta <= VALUE_INFINITE);
             }
@@ -963,7 +963,7 @@ moves_loop: // When in check and at SpNode search starts from here
           ss->reduction = DEPTH_ZERO;
       }
       else
-          doFullDepthSearch = !pvMove;
+          doFullDepthSearch = true;
 
       // Step 16. Full depth search, when LMR is skipped or fails high
       if (doFullDepthSearch)
