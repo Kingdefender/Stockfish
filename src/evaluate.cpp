@@ -166,7 +166,6 @@ namespace {
   #undef S
 
   const Score Tempo            = make_score(24, 11);
-  const Score BishopPin        = make_score(66, 11);
   const Score RookOn7th        = make_score(11, 20);
   const Score QueenOn7th       = make_score( 3,  8);
   const Score RookOnPawn       = make_score(10, 28);
@@ -497,17 +496,22 @@ Value do_evaluate(const Position& pos, Value& margin) {
 
     while ((s = *pl++) != SQ_NONE)
     {
+        bool pinned = false;
+        
         // Find attacked squares, including x-ray attacks for bishops and rooks
         b = Piece == BISHOP ? attacks_bb<BISHOP>(s, pos.pieces() ^ pos.pieces(Us, QUEEN))
           : Piece ==   ROOK ? attacks_bb<  ROOK>(s, pos.pieces() ^ pos.pieces(Us, ROOK, QUEEN))
                             : pos.attacks_from<Piece>(s);
 
         if (ei.pinnedPieces[Us] & s)
+        {
             b &= PseudoAttacks[QUEEN][pos.king_square(Us)];
+            pinned = true;
+        }
 
         ei.attackedBy[Us][Piece] |= b;
 
-        if (b & ei.kingRing[Them])
+        if (!pinned && (b & (ei.kingRing[Them]|ei.pinnedPieces[Them])))
         {
             ei.kingAttackersCount[Us]++;
             ei.kingAttackersWeight[Us] += KingAttackWeights[Piece];
@@ -525,13 +529,6 @@ Value do_evaluate(const Position& pos, Value& margin) {
         // of threat evaluation must be done later when we have full attack info.
         if (ei.attackedBy[Them][PAWN] & s)
             score -= ThreatenedByPawn[Piece];
-
-        // Otherwise give a bonus if we are a bishop and can pin a piece or can
-        // give a discovered check through an x-ray attack.
-        else if (    Piece == BISHOP
-                 && (PseudoAttacks[Piece][pos.king_square(Them)] & s)
-                 && !more_than_one(BetweenBB[s][pos.king_square(Them)] & pos.pieces()))
-                 score += BishopPin;
 
         // Penalty for bishop with same coloured pawns
         if (Piece == BISHOP)
