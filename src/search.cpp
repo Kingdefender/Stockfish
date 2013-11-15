@@ -66,7 +66,7 @@ namespace {
   int FutilityMoveCounts[2][32]; // [improving][depth]
 
   inline Value futility_margin(Depth d) {
-    return Value(100 * int(d));
+    return Value(128 + 10 * int(d) * int(d));
   }
 
   // Reduction lookup tables (initialized at startup) and their access function
@@ -494,6 +494,7 @@ namespace {
     Value bestValue, value, ttValue, eval, nullValue, futilityValue;
     bool inCheck, givesCheck, pvMove, singularExtensionNode, improving;
     bool captureOrPromotion, dangerous, doFullDepthSearch;
+    bool approximateEval = false;
     int moveCount, quietCount;
 
     // Step 1. Initialize node
@@ -599,8 +600,18 @@ namespace {
     }
     else
     {
-        eval = ss->staticEval = evaluate(pos);
-        TT.store(posKey, VALUE_NONE, BOUND_NONE, DEPTH_NONE, MOVE_NONE, ss->staticEval);
+        if (   (ss)->skipNullMove
+            && (ss-1)->currentMove == MOVE_NULL
+            && (ss-1)->staticEval > beta)
+        {
+            approximateEval = true;
+            eval = ss->staticEval = -(ss-1)->staticEval;
+        }
+        else
+        {
+            eval = ss->staticEval = evaluate(pos);
+            TT.store(posKey, VALUE_NONE, BOUND_NONE, DEPTH_NONE, MOVE_NONE, ss->staticEval);
+        }
     }
 
     if (   !pos.captured_piece_type()
@@ -615,6 +626,7 @@ namespace {
 
     // Step 6. Razoring (skipped when in check)
     if (   !PvNode
+        && !(ss)->skipNullMove
         &&  depth < 4 * ONE_PLY
         &&  eval + razor_margin(depth) < beta
         &&  ttMove == MOVE_NONE
@@ -1060,7 +1072,7 @@ moves_loop: // When in check and at SpNode search starts from here
     TT.store(posKey, value_to_tt(bestValue, ss->ply),
              bestValue >= beta  ? BOUND_LOWER :
              PvNode && bestMove ? BOUND_EXACT : BOUND_UPPER,
-             depth, bestMove, ss->staticEval);
+             depth, bestMove, approximateEval ? VALUE_NONE : ss->staticEval);
 
     // Quiet best move: update killers, history and countermoves
     if (    bestValue >= beta
@@ -1113,7 +1125,7 @@ moves_loop: // When in check and at SpNode search starts from here
     Key posKey;
     Move ttMove, move, bestMove;
     Value bestValue, value, ttValue, futilityValue, futilityBase, oldAlpha;
-    bool givesCheck, evasionPrunable;
+    bool givesCheck, evasionPrunable, approximateEval = false;
     Depth ttDepth;
 
     // To flag BOUND_EXACT a node with eval above alpha and no available moves
@@ -1170,8 +1182,19 @@ moves_loop: // When in check and at SpNode search starts from here
                     bestValue = ttValue;
         }
         else
-            ss->staticEval = bestValue = evaluate(pos);
-
+        {
+            if (   (ss)->skipNullMove
+                && (ss-1)->currentMove == MOVE_NULL
+                && (ss-1)->staticEval > beta)
+            {
+                assert(!PvNode);
+                approximateEval = true;
+                ss->staticEval = bestValue = -(ss-1)->staticEval;
+            }
+            else
+                ss->staticEval = bestValue = evaluate(pos);
+        }
+        
         // Stand pat. Return immediately if static value is at least beta
         if (bestValue >= beta)
         {
@@ -1274,7 +1297,7 @@ moves_loop: // When in check and at SpNode search starts from here
               else // Fail high
               {
                   TT.store(posKey, value_to_tt(value, ss->ply), BOUND_LOWER,
-                           ttDepth, move, ss->staticEval);
+                           ttDepth, move, approximateEval ? VALUE_NONE : ss->staticEval);
 
                   return value;
               }
@@ -1289,7 +1312,7 @@ moves_loop: // When in check and at SpNode search starts from here
 
     TT.store(posKey, value_to_tt(bestValue, ss->ply),
              PvNode && bestValue > oldAlpha ? BOUND_EXACT : BOUND_UPPER,
-             ttDepth, bestMove, ss->staticEval);
+             ttDepth, bestMove, approximateEval ? VALUE_NONE : ss->staticEval);
 
     assert(bestValue > -VALUE_INFINITE && bestValue < VALUE_INFINITE);
 
