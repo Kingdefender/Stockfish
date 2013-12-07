@@ -236,10 +236,10 @@ enum Rank {
 };
 
 
-/// The Score enum stores a midgame and an endgame value in a single integer
+/// The Score enum stores a middlegame and an endgame value in a single integer
 /// (enum). The least significant 16 bits are used to store the endgame value
-/// and the upper 16 bits are used to store the midgame value. The compiler is
-/// free to choose the enum type as long as it can store the data, so we
+/// and the upper 16 bits are used to store the middlegame value. The compiler
+/// is free to choose the enum type as long as it can store the data, so we
 /// ensure that Score is an integer type by assigning some big int values.
 enum Score {
   SCORE_ZERO,
@@ -255,8 +255,8 @@ inline Score make_score(int mg, int eg) { return Score((mg << 16) + eg); }
 inline Value mg_value(Score s) { return Value(((s + 0x8000) & ~0xffff) / 0x10000); }
 
 /// On Intel 64 bit we have a small speed regression with the standard conforming
-/// version. Therefore, in this case we use a faster code in this case that,
-/// although not 100% standard compliant it seems to work for Intel and MSVC.
+/// version. Therefore, in this case we use faster code that, although not 100%
+/// standard compliant, seems to work for Intel and MSVC.
 #if defined(IS_64BIT) && (!defined(__GNUC__) || defined(__INTEL_COMPILER))
 
 inline Value eg_value(Score s) { return Value(int16_t(s & 0xffff)); }

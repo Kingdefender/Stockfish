@@ -229,7 +229,7 @@ void Search::think() {
           << std::endl;
   }
 
-  // Reset the threads, still sleeping: will be wake up at split time
+  // Reset the threads, still sleeping: will wake up at split time
   for (size_t i = 0; i < Threads.size(); ++i)
       Threads[i]->maxPly = 0;
 
@@ -348,9 +348,9 @@ namespace {
                 // Bring the best move to the front. It is critical that sorting
                 // is done with a stable algorithm because all the values but the
                 // first and eventually the new best one are set to -VALUE_INFINITE
-                // and we want to keep the same order for all the moves but the new
-                // PV that goes to the front. Note that in case of MultiPV search
-                // the already searched PV lines are preserved.
+                // and we want to keep the same order for all the moves except the
+                // new PV that goes to the front. Note that in case of MultiPV
+                // search the already searched PV lines are preserved.
                 std::stable_sort(RootMoves.begin() + PVIdx, RootMoves.end());
 
                 // Write PV back to transposition table in case the relevant
@@ -776,7 +776,7 @@ moves_loop: // When in check and at SpNode search starts from here
           continue;
 
       // At root obey the "searchmoves" option and skip moves not listed in Root
-      // Move List, as a consequence any illegal move is also skipped. In MultiPV
+      // Move List. As a consequence any illegal move is also skipped. In MultiPV
       // mode we also skip PV moves which have been already searched.
       if (RootNode && !std::count(RootMoves.begin() + PVIdx, RootMoves.end(), move))
           continue;
@@ -807,8 +807,8 @@ moves_loop: // When in check and at SpNode search starts from here
       captureOrPromotion = pos.capture_or_promotion(move);
       givesCheck = pos.gives_check(move, ci);
       dangerous =   givesCheck
-                 || pos.passed_pawn_push(move)
-                 || type_of(move) == CASTLING;
+                 || type_of(move) != NORMAL
+                 || pos.advanced_pawn_push(move);
 
       // Step 12. Extend checks
       if (givesCheck && pos.see_sign(move) >= 0)
@@ -907,7 +907,7 @@ moves_loop: // When in check and at SpNode search starts from here
       // Step 14. Make the move
       pos.do_move(move, st, ci, givesCheck);
 
-      // Step 15. Reduced depth search (LMR). If the move fails high will be
+      // Step 15. Reduced depth search (LMR). If the move fails high it will be
       // re-searched at full depth.
       if (    depth >= 3 * ONE_PLY
           && !pvMove
@@ -1207,13 +1207,12 @@ moves_loop: // When in check and at SpNode search starts from here
           && !InCheck
           && !givesCheck
           &&  move != ttMove
-          &&  type_of(move) != PROMOTION
           &&  futilityBase > -VALUE_KNOWN_WIN
-          && !pos.passed_pawn_push(move))
+          && !pos.advanced_pawn_push(move))
       {
-          futilityValue =  futilityBase
-                         + PieceValue[EG][pos.piece_on(to_sq(move))]
-                         + (type_of(move) == ENPASSANT ? PawnValueEg : VALUE_ZERO);
+          assert(type_of(move) != ENPASSANT); // Due to !pos.advanced_pawn_push
+
+          futilityValue = futilityBase + PieceValue[EG][pos.piece_on(to_sq(move))];
 
           if (futilityValue < beta)
           {
@@ -1402,7 +1401,7 @@ moves_loop: // When in check and at SpNode search starts from here
         Bitboard xray =  (attacks_bb<  ROOK>(m2to, occ) & pos.pieces(color_of(pc), QUEEN, ROOK))
                        | (attacks_bb<BISHOP>(m2to, occ) & pos.pieces(color_of(pc), QUEEN, BISHOP));
 
-        // Verify attackers are triggered by our move and not already exist
+        // Verify attackers are triggered by our move and not already existing
         if (unlikely(xray) && (xray & ~pos.attacks_from<QUEEN>(m2to)))
             return true;
     }
