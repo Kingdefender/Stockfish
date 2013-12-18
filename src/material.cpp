@@ -101,7 +101,7 @@ namespace {
 
     const Color Them = (Us == WHITE ? BLACK : WHITE);
 
-    int pt1, pt2, pc, v;
+    int pt1, pt2, pc, v, q;
     int value = 0;
 
     // Second-degree polynomial material imbalance by Tord Romstad
@@ -119,6 +119,16 @@ namespace {
 
         value += pc * v;
     }
+    
+    q = pieceCount[Us][QUEEN] - pieceCount[Them][QUEEN];
+    
+    if (q >= 1) {
+        int n = pieceCount[Them][KNIGHT] - pieceCount[Us][KNIGHT],
+            b = pieceCount[Them][BISHOP] - pieceCount[Us][BISHOP],
+            r = pieceCount[Them][ROOK] - pieceCount[Us][ROOK];
+        value -= q * (r * 700 + b * 600 + n * 500);
+    }
+    
     return value;
   }
 
