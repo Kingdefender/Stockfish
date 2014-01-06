@@ -1,7 +1,7 @@
 /*
   Stockfish, a UCI chess playing engine derived from Glaurung 2.1
   Copyright (C) 2004-2008 Tord Romstad (Glaurung author)
-  Copyright (C) 2008-2013 Marco Costalba, Joona Kiiski, Tord Romstad
+  Copyright (C) 2008-2014 Marco Costalba, Joona Kiiski, Tord Romstad
 
   Stockfish is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -61,7 +61,7 @@ namespace {
   };
 
   // Endgame evaluation and scaling functions are accessed directly and not through
-  // the function maps because they correspond to more then one material hash key.
+  // the function maps because they correspond to more than one material hash key.
   Endgame<KmmKm> EvaluateKmmKm[] = { Endgame<KmmKm>(WHITE), Endgame<KmmKm>(BLACK) };
   Endgame<KXK>   EvaluateKXK[]   = { Endgame<KXK>(WHITE),   Endgame<KXK>(BLACK) };
 
@@ -254,6 +254,16 @@ Entry* probe(const Position& pos, Table& entries, Endgames& endgames) {
   {
       e->factor[BLACK] = (uint8_t)
       (npm_w == npm_b || npm_b < RookValueMg ? 0 : NoPawnsSF[std::min(pos.count<BISHOP>(BLACK), 2)]);
+  }
+
+  if (pos.count<PAWN>(WHITE) == 1 && npm_w - npm_b <= BishopValueMg)
+  {
+      e->factor[WHITE] = (uint8_t) SCALE_FACTOR_ONEPAWN;
+  }
+
+  if (pos.count<PAWN>(BLACK) == 1 && npm_b - npm_w <= BishopValueMg)
+  {
+      e->factor[BLACK] = (uint8_t) SCALE_FACTOR_ONEPAWN;
   }
 
   // Compute the space weight
