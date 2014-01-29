@@ -899,18 +899,36 @@ Value do_evaluate(const Position& pos) {
                    & ~pos.pieces(Us, PAWN)
                    & ~ei.attackedBy[Them][PAWN]
                    & (ei.attackedBy[Us][ALL_PIECES] | ~ei.attackedBy[Them][ALL_PIECES]);
+                   
+    assert(unsigned(safe >> (Us == WHITE ? 32 : 0)) == 0);
 
     // Find all squares which are at most three squares behind some friendly pawn
     Bitboard behind = pos.pieces(Us, PAWN);
     behind |= (Us == WHITE ? behind >>  8 : behind <<  8);
     behind |= (Us == WHITE ? behind >> 16 : behind << 16);
+    behind |= (Us == WHITE ? behind <<  8 : behind >>  8);
+	
+  	// Since SpaceMask[Us] is never more than four ranks
+  	// of which the frontmost rank is only counted for behind,
+  	// count safe + (behind & safe) with a single popcount.
+  	int s = popcount<Full>((Us == WHITE ? (safe << 24 | (behind & safe) >> 8)
+  	                                    : ((safe >> 24) | ((behind & safe) << 8))));
+  										
+  	Bitboard unsafeBehind = behind & ei.attackedBy[Them][ALL_PIECES] & ~ei.attackedBy[Us][ALL_PIECES];
+  	
+  	if (!unsafeBehind)
+  	    return s - ((s < 8 ? (8 - s) * (8 - s) : (8 - s))/4);
+  	else
+  	{
+  	    Bitboard unsafeSpace = SpaceMask[Us] & ei.attackedBy[Them][ALL_PIECES] & ~ei.attackedBy[Us][ALL_PIECES];
+  	    assert(unsigned(unsafeSpace >> (Us == WHITE ? 32 : 0)) == 0);
+  	    // Count unsafeSpace + (unsafeBehind & unsafeSpace) with a single popcount
+  	    int u = popcount<Full>((Us == WHITE ? (unsafeSpace << 24 | (unsafeBehind) >> 8)
+  	                                        : ((unsafeSpace >> 24) | ((unsafeBehind) << 8))));
+  	    return s - ((s < 8 ? (8 - s) * (8 - s) : (8 - s)) - u)/4;
+  	}
 
-    // Since SpaceMask[Us] is fully on our half of the board
-    assert(unsigned(safe >> (Us == WHITE ? 32 : 0)) == 0);
-
-    // Count safe + (behind & safe) with a single popcount
-    return popcount<Full>((Us == WHITE ? safe << 32 : safe >> 32) | (behind & safe));
-  }
+  } // evaluate_space
 
 
   // interpolate() interpolates between a middlegame and an endgame score,
