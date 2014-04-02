@@ -488,6 +488,8 @@ Value do_evaluate(const Position& pos) {
                               : popcount<Full >(b & mobilityArea);
 
         mobility[Us] += MobilityBonus[Pt][mob];
+        if (mob == 0 && b != 0)
+            mobility[Us] += MobilityBonus[Pt][0];
 
         // Decrease score if we are attacked by an enemy pawn. The remaining part
         // of threat evaluation must be done later when we have full attack info.
