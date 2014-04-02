@@ -174,7 +174,7 @@ Entry* probe(const Position& pos, Table& entries, Endgames& endgames) {
       return e;
   }
 
-  // Generic scaling functions that refer to more then one material
+  // Generic scaling functions that refer to more than one material
   // distribution. They should be probed after the specialized ones.
   // Note that these ones don't return after setting the function.
   if (is_KBPsKs<WHITE>(pos))
@@ -217,10 +217,10 @@ Entry* probe(const Position& pos, Table& entries, Endgames& endgames) {
   // catches some trivial draws like KK, KBK and KNK and gives a very drawish
   // scale factor for cases such as KRKBP and KmmKm (except for KBBKN).
   if (!pos.count<PAWN>(WHITE) && npm_w - npm_b <= BishopValueMg)
-      e->factor[WHITE] = npm_w < RookValueMg ? SCALE_FACTOR_DRAW : npm_b <= BishopValueMg ? 4 : 12;
+      e->factor[WHITE] = uint8_t(npm_w < RookValueMg ? SCALE_FACTOR_DRAW : npm_b <= BishopValueMg ? 4 : 12);
 
   if (!pos.count<PAWN>(BLACK) && npm_b - npm_w <= BishopValueMg)
-      e->factor[BLACK] = npm_b < RookValueMg ? SCALE_FACTOR_DRAW : npm_w <= BishopValueMg ? 4 : 12;
+      e->factor[BLACK] = uint8_t(npm_b < RookValueMg ? SCALE_FACTOR_DRAW : npm_w <= BishopValueMg ? 4 : 12);
 
   if (pos.count<PAWN>(WHITE) == 1 && npm_w - npm_b <= BishopValueMg)
       e->factor[WHITE] = (uint8_t) SCALE_FACTOR_ONEPAWN;
