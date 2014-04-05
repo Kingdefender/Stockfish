@@ -139,6 +139,7 @@ namespace {
         // be backward. If there are friendly pawns behind on adjacent files
         // or if it can capture an enemy pawn it cannot be backward either.
         if (   (passed | isolated | connected | !unsupported)
+            || (ourPawns & pawn_attack_span(Them, s))
             || (Us == pos.side_to_move() && (pos.attacks_from<PAWN>(s, Us) & theirPawns)))
             backward = false;
         else
@@ -148,8 +149,8 @@ namespace {
                 backward = true;
             else
             {
-                // We now know that there are no friendly pawns beside or immediately
-                // behind this pawn on adjacent files. If it is not doubled the pawn
+                // We now know that there are no friendly pawns beside or behind
+                // this pawn on adjacent files. If it is not doubled the pawn
                 // might still advance and reconnect. We now check whether the pawn
                 // is backward by looking in the forward direction on the adjacent
                 // files, and picking the closest pawn there.
