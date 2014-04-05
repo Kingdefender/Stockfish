@@ -90,9 +90,10 @@ namespace {
     const Square Left  = (Us == WHITE ? DELTA_NW : DELTA_SE);
 
     Bitboard b, p;
-    Square s;
+    Square s, blockSq;
     File f;
     bool passed, isolated, doubled, opposed, connected, backward, candidate, unsupported;
+    bool blocked;
     Score value = SCORE_ZERO;
     const Square* pl = pos.list<PAWN>(Us);
 
@@ -110,7 +111,8 @@ namespace {
     while ((s = *pl++) != SQ_NONE)
     {
         assert(pos.piece_on(s) == make_piece(Us, PAWN));
-
+        
+        blockSq = s + pawn_push(Us);
         f = file_of(s);
 
         // This file cannot be semi-open
@@ -129,28 +131,34 @@ namespace {
         isolated    = !(ourPawns   & adjacent_files_bb(f));
         doubled     =   ourPawns   & forward_bb(Us, s);
         opposed     =   theirPawns & forward_bb(Us, s);
+        blocked     =   opposed && (theirPawns & blockSq);
         passed      = !(theirPawns & passed_pawn_mask(Us, s));
 
         // Test for backward pawn.
-        // If the pawn is passed, isolated, or connected it cannot be
-        // backward. If there are friendly pawns behind on adjacent files
+        // If the pawn is passed, isolated, connected or supported it can't
+        // be backward. If there are friendly pawns behind on adjacent files
         // or if it can capture an enemy pawn it cannot be backward either.
-        if (   (passed | isolated | connected)
-            || (ourPawns & pawn_attack_span(Them, s))
-            || (pos.attacks_from<PAWN>(s, Us) & theirPawns))
+        if (   (passed | isolated | connected | !unsupported)
+            || (Us == pos.side_to_move() && (pos.attacks_from<PAWN>(s, Us) & theirPawns)))
             backward = false;
         else
         {
-            // We now know that there are no friendly pawns beside or behind this
-            // pawn on adjacent files. We now check whether the pawn is
-            // backward by looking in the forward direction on the adjacent
-            // files, and picking the closest pawn there.
-            b = pawn_attack_span(Us, s) & (ourPawns | theirPawns);
-            b = pawn_attack_span(Us, s) & rank_bb(backmost_sq(Us, b));
-
-            // If we have an enemy pawn in the same or next rank, the pawn is
-            // backward because it cannot advance without being captured.
-            backward = (b | shift_bb<Up>(b)) & theirPawns;
+            if (   blocked
+                || (Them == pos.side_to_move() && (pos.attacks_from<PAWN>(s, Us) & theirPawns)))
+                backward = true;
+            else
+            {
+                // We now know that there are no friendly pawns beside or immediately
+                // behind this pawn on adjacent files. If it is not doubled the pawn
+                // might still advance and reconnect. We now check whether the pawn
+                // is backward by looking in the forward direction on the adjacent
+                // files, and picking the closest pawn there.
+                b = pawn_attack_span(Us, s) & (ourPawns | theirPawns);
+                b = pawn_attack_span(Us, s) & rank_bb(backmost_sq(Us, b));
+                // If we have an enemy pawn in the same or next rank, the pawn is
+                // backward because it cannot advance without being captured.
+                backward = (b | shift_bb<Up>(b)) & theirPawns;
+            }
         }
 
         assert(opposed | passed | (pawn_attack_span(Us, s) & theirPawns));
