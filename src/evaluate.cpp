@@ -642,6 +642,10 @@ namespace {
 
                 else if (defendedSquares & blockSq)
                     k += (unsafeSquares & defendedSquares) == unsafeSquares ? 4 : 2;
+                    
+                // Correct for king's proximity (second push)
+                if (relative_rank(Us, blockSq) != RANK_8)
+                    k -= int(square_distance(pos.king_square(Us), blockSq + pawn_push(Us)));
 
                 mbonus += Value(k * rr), ebonus += Value(k * rr);
             }
