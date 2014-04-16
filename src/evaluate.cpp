@@ -666,7 +666,8 @@ namespace {
         // we try the following: Increase the value for rook pawns if the
         // other side has no pieces apart from a knight, and decrease the
         // value if the other side has a rook or queen.
-        if (file_of(s) == FILE_A || file_of(s) == FILE_H)
+        if (   (file_of(s) == FILE_A || file_of(s) == FILE_H)
+            && ebonus > VALUE_ZERO)
         {
             if (pos.non_pawn_material(Them) <= KnightValueMg)
                 ebonus += ebonus / 4;
