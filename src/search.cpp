@@ -94,7 +94,7 @@ namespace {
   void id_loop(Position& pos);
   Value value_to_tt(Value v, int ply);
   Value value_from_tt(Value v, int ply);
-  void update_stats(Position& pos, Stack* ss, Move move, Depth depth, Move* quiets, int quietsCnt);
+  void update_stats(const Position& pos, Stack* ss, Move move, Depth depth, Move* quiets, int quietsCnt);
   string uci_pv(const Position& pos, int depth, Value alpha, Value beta);
 
   struct Skill {
@@ -984,8 +984,10 @@ moves_loop: // When in check and at SpNode search starts from here
 
       // Step 19. Check for splitting the search
       if (   !SpNode
+          &&  Threads.size() >= 2
           &&  depth >= Threads.minimumSplitDepth
-          &&  Threads.available_slave(thisThread)
+          &&  (   !thisThread->activeSplitPoint
+               || !thisThread->activeSplitPoint->allSlavesSearching)
           &&  thisThread->splitPointsSize < MAX_SPLITPOINTS_PER_THREAD)
       {
           assert(bestValue > -VALUE_INFINITE && bestValue < beta);
@@ -1265,7 +1267,7 @@ moves_loop: // When in check and at SpNode search starts from here
   // update_stats() updates killers, history, countermoves and followupmoves stats after a fail-high
   // of a quiet move.
 
-  void update_stats(Position& pos, Stack* ss, Move move, Depth depth, Move* quiets, int quietsCnt) {
+  void update_stats(const Position& pos, Stack* ss, Move move, Depth depth, Move* quiets, int quietsCnt) {
 
     if (ss->killers[0] != move)
     {
@@ -1530,6 +1532,7 @@ void Thread::idle_loop() {
           searching = false;
           activePosition = NULL;
           sp->slavesMask.reset(idx);
+          sp->allSlavesSearching = false;
           sp->nodes += pos.nodes_searched();
 
           // Wake up the master thread so to allow it to return from the idle
@@ -1544,9 +1547,39 @@ void Thread::idle_loop() {
 
           // After releasing the lock we can't access any SplitPoint related data
           // in a safe way because it could have been released under our feet by
-          // the sp master. Also accessing other Thread objects is unsafe because
-          // if we are exiting there is a chance that they are already freed.
+          // the sp master.
           sp->mutex.unlock();
+
+          // Try to late join to another split point if none of its slaves has
+          // already finished.
+          if (Threads.size() > 2)
+              for (size_t i = 0; i < Threads.size(); ++i)
+              {
+                  int size = Threads[i]->splitPointsSize; // Local copy
+                  sp = size ? &Threads[i]->splitPoints[size - 1] : NULL;
+
+                  if (   sp
+                      && sp->allSlavesSearching
+                      && available_to(Threads[i]))
+                  {
+                      // Recheck the conditions under lock protection
+                      Threads.mutex.lock();
+                      sp->mutex.lock();
+
+                      if (   sp->allSlavesSearching
+                          && available_to(Threads[i]))
+                      {
+                           sp->slavesMask.set(idx);
+                           activeSplitPoint = sp;
+                           searching = true;
+                      }
+
+                      sp->mutex.unlock();
+                      Threads.mutex.unlock();
+
+                      break; // Just a single attempt
+                  }
+              }
       }
 
       // If this thread is the master of a split point and all slaves have finished
