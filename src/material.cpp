@@ -35,9 +35,9 @@ namespace {
   const int QuadraticCoefficientsSameColor[][PIECE_TYPE_NB] = {
     // pair pawn knight bishop rook queen
     {   0                               }, // Bishop pair
-    {  39,    2                         }, // Pawn
-    {  35,  271,  -4                    }, // Knight
-    {   0,  105,   4,    0              }, // Bishop
+    {  39,   -4                         }, // Pawn
+    {  35,  275,  -4                    }, // Knight
+    {   0,  107,   4,    0              }, // Bishop
     { -27,   -2,  46,   100,  -141      }, // Rook
     {-177,   25, 129,   142,  -137,   0 }  // Queen
   };
@@ -47,10 +47,10 @@ namespace {
     // pair pawn knight bishop rook queen
     {   0                               }, // Bishop pair
     {  37,    0                         }, // Pawn
-    {  10,   62,   0                    }, // Knight      OUR PIECES
-    {  57,   64,  39,     0             }, // Bishop
-    {  50,   40,  23,   -22,    0       }, // Rook
-    {  98,  105, -39,   141,  274,    0 }  // Queen
+    {  10,   68,   0                    }, // Knight      OUR PIECES
+    {  57,   66,  39,     0             }, // Bishop
+    {  50,   42,  23,   -22,    0       }, // Rook
+    {  98,  106, -39,   141,  274,    0 }  // Queen
   };
 
   // Endgame evaluation and scaling functions are accessed directly and not through
