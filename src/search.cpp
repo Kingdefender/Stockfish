@@ -60,7 +60,7 @@ namespace {
   enum NodeType { Root, PV, NonPV };
 
   // Dynamic razoring margin based on depth
-  inline Value razor_margin(Depth d) { return Value(512 + 16 * d); }
+  inline Value razor_margin(Depth d) { return Value(180 * d); }
 
   // Futility lookup tables (initialized at startup) and their access functions
   int FutilityMoveCounts[2][32]; // [improving][depth]
