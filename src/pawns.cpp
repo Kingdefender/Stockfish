@@ -145,12 +145,12 @@ namespace {
             // pawn on adjacent files. We now check whether the pawn is
             // backward by looking in the forward direction on the adjacent
             // files, and picking the closest pawn there.
-            b = pawn_attack_span(Us, s) & (ourPawns | theirPawns);
-            b = pawn_attack_span(Us, s) & rank_bb(backmost_sq(Us, b));
+            b = (pawn_attack_span(Us, s) | forward_bb(Us, s)) & (ourPawns | theirPawns);
+            b = (pawn_attack_span(Us, s) | forward_bb(Us, s)) & rank_bb(backmost_sq(Us, b));
 
             // If we have an enemy pawn in the same or next rank, the pawn is
             // backward because it cannot advance without being captured.
-            backward = (b | shift_bb<Up>(b)) & theirPawns;
+            backward = ((b | shift_bb<Up>(b)) & theirPawns) || !(pawn_attack_span(Us, s) & b & ourPawns);
         }
 
         assert(opposed | passed | (pawn_attack_span(Us, s) & theirPawns));
