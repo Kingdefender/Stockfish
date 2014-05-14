@@ -42,13 +42,9 @@ namespace {
   { S(25, 30), S(36, 35), S(40, 35), S(40, 35),
     S(40, 35), S(40, 35), S(36, 35), S(25, 30) } };
 
-  // Backward pawn penalty by opposed flag and file
-  const Score Backward[2][FILE_NB] = {
-  { S(30, 42), S(43, 46), S(49, 46), S(49, 46),
-    S(49, 46), S(49, 46), S(43, 46), S(30, 42) },
-  { S(20, 28), S(29, 31), S(33, 31), S(33, 31),
-    S(33, 31), S(33, 31), S(29, 31), S(20, 28) } };
-
+  // Backward pawn penalty by file and rank (initialized by formula)
+  Score Backward[FILE_NB][RANK_NB];
+  
   // Connected pawn bonus by file and rank (initialized by formula)
   Score Connected[FILE_NB][RANK_NB];
 
@@ -180,7 +176,7 @@ namespace {
             value -= Doubled[f] / rank_distance(s, lsb(doubled));
 
         if (backward)
-            value -= Backward[opposed][f];
+            value -= Backward[f][relative_rank(Them, s)];
 
         if (connected)
             value += Connected[f][relative_rank(Us, s)];
@@ -213,14 +209,15 @@ namespace Pawns {
 
 void init() {
 
-  const int bonusesByFile[8] = { 1, 3, 3, 4, 4, 3, 3, 1 };
-  int bonus;
+  const int valuesByFile[8] = { 1, 3, 3, 4, 4, 3, 3, 1 };
+  int value;
 
   for (Rank r = RANK_1; r < RANK_8; ++r)
       for (File f = FILE_A; f <= FILE_H; ++f)
       {
-          bonus = r * (r-1) * (r-2) + bonusesByFile[f] * (r/2 + 1);
-          Connected[f][r] = make_score(bonus, bonus);
+          value = r * (r-1) * (r-2) + valuesByFile[f] * (r/2 + 1);
+          Connected[f][r] = make_score(value, value);
+          Backward[f][r]  = make_score(value, value);
       }
 }
 
