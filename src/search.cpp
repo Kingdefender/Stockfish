@@ -1109,9 +1109,10 @@ moves_loop: // When in check and at SpNode search starts from here
                 ss->staticEval = bestValue = evaluate(pos);
 
             // Can ttValue be used as a better position evaluation?
-            if (ttValue != VALUE_NONE)
-                if (tte->bound() & (ttValue > bestValue ? BOUND_LOWER : BOUND_UPPER))
-                    bestValue = ttValue;
+            if (   ttValue != VALUE_NONE
+                && ttValue < bestValue
+                && (tte->bound() & BOUND_UPPER))
+                bestValue = ttValue;
         }
         else
             ss->staticEval = bestValue = evaluate(pos);
