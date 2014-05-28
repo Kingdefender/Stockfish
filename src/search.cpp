@@ -460,7 +460,7 @@ namespace {
     Depth ext, newDepth, predictedDepth;
     Value bestValue, value, ttValue, eval, nullValue, futilityValue;
     bool inCheck, givesCheck, pvMove, singularExtensionNode, improving;
-    bool captureOrPromotion, dangerous, doFullDepthSearch;
+    bool captureOrPromotion, dangerous, doFullDepthSearch, doIID = true;
     int moveCount, quietCount;
 
     // Step 1. Initialize node
@@ -643,6 +643,7 @@ namespace {
 
             if (v >= beta)
                 return nullValue;
+            doIID = false;
         }
     }
 
@@ -678,9 +679,10 @@ namespace {
     }
 
     // Step 10. Internal iterative deepening (skipped when in check)
-    if (    depth >= (PvNode ? 5 * ONE_PLY : 8 * ONE_PLY)
+    if (    depth >= 5 * ONE_PLY
+        &&  doIID
         && !ttMove
-        && (PvNode || ss->staticEval + 256 >= beta))
+        && (PvNode || eval >= beta))
     {
         Depth d = depth - 2 * ONE_PLY - (PvNode ? DEPTH_ZERO : depth / 4);
 
