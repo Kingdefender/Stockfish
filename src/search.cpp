@@ -549,6 +549,10 @@ namespace {
 
         TT.store(posKey, VALUE_NONE, BOUND_NONE, DEPTH_NONE, MOVE_NONE, ss->staticEval);
     }
+    
+    improving =    ss->staticEval >= (ss-2)->staticEval
+               &&  ss->staticEval    != VALUE_NONE
+               && (ss-2)->staticEval != VALUE_NONE;
 
     if (   !pos.captured_piece_type()
         &&  ss->staticEval != VALUE_NONE
@@ -584,7 +588,6 @@ namespace {
         && !ss->skipNullMove
         &&  depth < 7 * ONE_PLY
         &&  eval - futility_margin(depth) >= beta
-        && !(tte && (tte->bound() & BOUND_UPPER))
         &&  abs(beta) < VALUE_MATE_IN_MAX_PLY
         &&  abs(eval) < VALUE_KNOWN_WIN
         &&  pos.non_pawn_material(pos.side_to_move()))
@@ -595,7 +598,6 @@ namespace {
         && !ss->skipNullMove
         &&  depth >= 2 * ONE_PLY
         &&  eval >= beta
-        && !(tte && (tte->bound() & BOUND_UPPER))
         &&  abs(beta) < VALUE_MATE_IN_MAX_PLY
         &&  pos.non_pawn_material(pos.side_to_move()))
     {
@@ -621,7 +623,9 @@ namespace {
             if (nullValue >= VALUE_MATE_IN_MAX_PLY)
                 nullValue = beta;
 
-            if (depth < 12 * ONE_PLY)
+            if (   depth < 12 * ONE_PLY
+                && improving
+                && !(tte && (tte->bound() & BOUND_UPPER)))
                 return nullValue;
 
             // Do verification search at high depths
