@@ -594,7 +594,6 @@ namespace {
         && !ss->skipNullMove
         &&  depth >= 2 * ONE_PLY
         &&  eval >= beta
-        &&  abs(beta) < VALUE_MATE_IN_MAX_PLY
         &&  pos.non_pawn_material(pos.side_to_move()))
     {
         ss->currentMove = MOVE_NULL;
@@ -619,7 +618,7 @@ namespace {
             if (nullValue >= VALUE_MATE_IN_MAX_PLY)
                 nullValue = beta;
 
-            if (depth < 12 * ONE_PLY)
+            if (depth < 12 * ONE_PLY && abs(beta) < VALUE_MATE_IN_MAX_PLY)
                 return nullValue;
 
             // Do verification search at high depths
