@@ -566,7 +566,6 @@ namespace {
         &&  depth < 4 * ONE_PLY
         &&  eval + razor_margin(depth) <= alpha
         &&  ttMove == MOVE_NONE
-        &&  abs(beta) < VALUE_MATE_IN_MAX_PLY
         && !pos.pawn_on_7th(pos.side_to_move()))
     {
         if (   depth <= ONE_PLY
@@ -594,7 +593,6 @@ namespace {
         && !ss->skipNullMove
         &&  depth >= 2 * ONE_PLY
         &&  eval >= beta
-        &&  abs(beta) < VALUE_MATE_IN_MAX_PLY
         &&  pos.non_pawn_material(pos.side_to_move()))
     {
         ss->currentMove = MOVE_NULL;
@@ -619,7 +617,7 @@ namespace {
             if (nullValue >= VALUE_MATE_IN_MAX_PLY)
                 nullValue = beta;
 
-            if (depth < 12 * ONE_PLY)
+            if (depth < 12 * ONE_PLY && abs(beta) < VALUE_KNOWN_WIN)
                 return nullValue;
 
             // Do verification search at high depths
@@ -699,10 +697,12 @@ moves_loop: // When in check and at SpNode search starts from here
     singularExtensionNode =   !RootNode
                            && !SpNode
                            &&  depth >= 8 * ONE_PLY
+                           &&  abs(beta) < VALUE_KNOWN_WIN
                            &&  ttMove != MOVE_NONE
                            && !excludedMove // Recursive singular search is not allowed
                            && (tte->bound() & BOUND_LOWER)
-                           &&  tte->depth() >= depth - 3 * ONE_PLY;
+                           &&  tte->depth() >= depth - 3 * ONE_PLY
+                           && (PvNode ? (ttValue > alpha && ttValue < beta) : ttValue >= beta);
 
     // Step 11. Loop through moves
     // Loop through all pseudo-legal moves until no moves remain or a beta cutoff occurs
@@ -764,8 +764,7 @@ moves_loop: // When in check and at SpNode search starts from here
       if (    singularExtensionNode
           &&  move == ttMove
           && !ext
-          &&  pos.legal(move, ci.pinned)
-          &&  abs(ttValue) < VALUE_KNOWN_WIN)
+          &&  pos.legal(move, ci.pinned))
       {
           assert(ttValue != VALUE_NONE);
 
@@ -788,7 +787,8 @@ moves_loop: // When in check and at SpNode search starts from here
           && !captureOrPromotion
           && !inCheck
           && !dangerous
-       /* &&  move != ttMove Already implicit in the next condition */
+          &&  beta > -VALUE_KNOWN_WIN
+          &&  move != ttMove // Implicit in the next condition
           &&  bestValue > VALUE_MATED_IN_MAX_PLY)
       {
           // Move count based pruning
