@@ -155,6 +155,7 @@ namespace {
 
   #undef S
 
+  const Score RookOn7th        = make_score(11, 20);
   const Score RookOnPawn       = make_score(10, 28);
   const Score RookOpenFile     = make_score(43, 21);
   const Score RookSemiopenFile = make_score(19, 10);
@@ -331,9 +332,18 @@ namespace {
             // Rook piece attacking enemy pawns on the same rank/file
             if (relative_rank(Us, s) >= RANK_5)
             {
+                int pawnCount = 0;
                 Bitboard pawns = pos.pieces(Them, PAWN) & PseudoAttacks[ROOK][s];
                 if (pawns)
-                    score += popcount<Max15>(pawns) * RookOnPawn;
+                {
+                    pawnCount = popcount<Max15>(pawns);
+                    score += pawnCount * RookOnPawn;
+                }
+                // Rook on 7th rank and enemy king trapped or attacked
+                if (   relative_rank(Us, s) == RANK_7
+                    && relative_rank(Us, pos.king_square(Them)) >= RANK_7)
+                    score += (pawnCount == 0 && relative_rank(Us, pos.king_square(Them)) == RANK_8) ?
+                             2 * RookOn7th : RookOn7th;
             }
 
             // Give a bonus for a rook on a open or semi-open file
