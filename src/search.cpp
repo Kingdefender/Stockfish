@@ -599,6 +599,7 @@ namespace {
         // Null move dynamic reduction based on depth and value
         Depth R =  3 * ONE_PLY
                  + depth / 4
+                 + int(ss->ply / 4) * ONE_PLY
                  + (abs(beta) < VALUE_KNOWN_WIN ? int(eval - beta) / PawnValueMg * ONE_PLY
                                                 : DEPTH_ZERO);
 
@@ -619,6 +620,7 @@ namespace {
                 return nullValue;
 
             // Do verification search at high depths
+            R = 3 * ONE_PLY + R / 4;
             ss->skipNullMove = true;
             Value v = depth-R < ONE_PLY ? qsearch<NonPV, false>(pos, ss, beta-1, beta, DEPTH_ZERO)
                                         :  search<NonPV, false>(pos, ss, beta-1, beta, depth-R, false);
