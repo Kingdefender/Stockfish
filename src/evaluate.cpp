@@ -496,7 +496,7 @@ namespace {
 
     const Color Them = (Us == WHITE ? BLACK : WHITE);
 
-    Bitboard b, weakEnemies, protectedEnemies;
+    Bitboard b, weakEnemies, protectedEnemies, weakPawns;
     Score score = SCORE_ZERO;
     enum { Minor, Major };
 
@@ -506,7 +506,15 @@ namespace {
                       & (ei.attackedBy[Us][KNIGHT] | ei.attackedBy[Us][BISHOP]);
 
     if(protectedEnemies)
-        score += Threat[Minor][type_of(pos.piece_on(lsb(protectedEnemies)))];
+       score += Threat[Minor][type_of(pos.piece_on(lsb(protectedEnemies)))];
+        
+    // Weak pawns
+    weakPawns =  pos.pieces(Them,PAWN)
+               & ~ei.attackedBy[Them][ALL_PIECES];
+    
+    if (weakPawns)
+        score += more_than_one(weakPawns) ? make_score(10, 18) * popcount<Max15>(weakPawns)
+                                          : make_score(10, 18);
 
     // Enemies not defended by a pawn and under our attack
     weakEnemies =  pos.pieces(Them)
