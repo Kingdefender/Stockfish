@@ -638,14 +638,14 @@ namespace {
     // and a reduced search returns a value much above beta, we can (almost) safely
     // prune the previous move.
     if (   !PvNode
-        &&  depth >= 5 * ONE_PLY
+        &&  depth >= 2 * ONE_PLY
         && !ss->skipNullMove
         &&  abs(beta) < VALUE_MATE_IN_MAX_PLY)
     {
-        Value rbeta = std::min(beta + 200, VALUE_INFINITE);
+        Value rbeta = std::min(beta + 128 + Value(int(depth) * 8), VALUE_INFINITE);
         Depth rdepth = depth - 4 * ONE_PLY;
 
-        assert(rdepth >= ONE_PLY);
+        /* assert(rdepth >= ONE_PLY); */
         assert((ss-1)->currentMove != MOVE_NONE);
         assert((ss-1)->currentMove != MOVE_NULL);
 
@@ -657,7 +657,8 @@ namespace {
             {
                 ss->currentMove = move;
                 pos.do_move(move, st, ci, pos.gives_check(move, ci));
-                value = -search<NonPV, false>(pos, ss+1, -rbeta, -rbeta+1, rdepth, !cutNode);
+                value = rdepth < ONE_PLY ? -qsearch<NonPV, false>(pos, ss+1, -rbeta, -rbeta+1, DEPTH_ZERO)
+                                         :  -search<NonPV, false>(pos, ss+1, -rbeta, -rbeta+1, rdepth, !cutNode);
                 pos.undo_move(move);
                 if (value >= rbeta)
                     return value;
