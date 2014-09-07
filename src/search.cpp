@@ -125,7 +125,7 @@ void Search::init() {
   // Init reductions array
   for (hd = 1; hd < 64; ++hd) for (mc = 1; mc < 64; ++mc)
   {
-      double    pvRed = 0.00 + log(double(hd)) * log(double(mc)) / 3.00;
+      double    pvRed = 0.00 + log(double(hd)) * log(double(mc)) / 2.75;
       double nonPVRed = 0.33 + log(double(hd)) * log(double(mc)) / 2.25;
       Reductions[1][1][hd][mc] = int8_t(   pvRed >= 1.0 ?    pvRed * int(ONE_PLY) : 0);
       Reductions[0][1][hd][mc] = int8_t(nonPVRed >= 1.0 ? nonPVRed * int(ONE_PLY) : 0);
