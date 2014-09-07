@@ -863,11 +863,15 @@ moves_loop: // When in check and at SpNode search starts from here
       {
           if (SpNode)
               alpha = splitPoint->alpha;
-
+          
+          if (PvNode)
+              (ss+1)->skipNullMove = true;
           value = newDepth < ONE_PLY ?
                           givesCheck ? -qsearch<NonPV,  true>(pos, ss+1, -(alpha+1), -alpha, DEPTH_ZERO)
                                      : -qsearch<NonPV, false>(pos, ss+1, -(alpha+1), -alpha, DEPTH_ZERO)
                                      : - search<NonPV, false>(pos, ss+1, -(alpha+1), -alpha, newDepth, !cutNode);
+          if (PvNode)
+              (ss+1)->skipNullMove = false;
       }
 
       // For PV nodes only, do a full PV search on the first move or after a fail
