@@ -434,7 +434,8 @@ namespace {
     bestValue = -VALUE_INFINITE;
     ss->currentMove = ss->ttMove = (ss+1)->excludedMove = bestMove = MOVE_NONE;
     ss->ply = (ss-1)->ply + 1;
-    (ss+1)->skipNullMove = false; (ss+1)->reduction = DEPTH_ZERO;
+    (ss+1)->skipNullMove = false;
+    (ss+1)->reduction = DEPTH_ZERO;
     (ss+2)->killers[0] = (ss+2)->killers[1] = MOVE_NONE;
 
     // Used to send selDepth info to GUI
@@ -563,11 +564,12 @@ namespace {
         ss->currentMove = MOVE_NULL;
 
         assert(eval - beta >= 0);
+        int pawnsAboveBeta = int(eval - beta) / PawnValueMg;
 
         // Null move dynamic reduction based on depth and value
         Depth R =  3 * ONE_PLY
                  + depth / 4
-                 + (abs(beta) < VALUE_KNOWN_WIN ? int(eval - beta) / PawnValueMg * ONE_PLY
+                 + (abs(beta) < VALUE_KNOWN_WIN ? pawnsAboveBeta * ONE_PLY
                                                 : DEPTH_ZERO);
 
         pos.do_null_move(st);
@@ -585,14 +587,17 @@ namespace {
 
             if (depth < 12 * ONE_PLY && abs(beta) < VALUE_KNOWN_WIN)
                 return nullValue;
+                
+            Value rBeta = beta + Value(pawnsAboveBeta * 100);
+            R = 4 * ONE_PLY;
 
             // Do verification search at high depths
             ss->skipNullMove = true;
-            Value v = depth-R < ONE_PLY ? qsearch<NonPV, false>(pos, ss, beta-1, beta, DEPTH_ZERO)
-                                        :  search<NonPV, false>(pos, ss, beta-1, beta, depth-R, false);
+            Value v = depth-R < ONE_PLY ? qsearch<NonPV, false>(pos, ss, rBeta-1, rBeta, DEPTH_ZERO)
+                                        :  search<NonPV, false>(pos, ss, rBeta-1, rBeta, depth-R, false);
             ss->skipNullMove = false;
 
-            if (v >= beta)
+            if (v >= rBeta)
                 return nullValue;
         }
     }
