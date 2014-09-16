@@ -589,7 +589,6 @@ namespace {
                 return nullValue;
                 
             Value rBeta = beta + Value(pawnsAboveBeta * 100);
-            R = 4 * ONE_PLY;
 
             // Do verification search at high depths
             ss->skipNullMove = true;
