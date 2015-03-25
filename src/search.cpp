@@ -1441,6 +1441,10 @@ moves_loop: // When in check and at SpNode search starts from here
     {
         Square prevPrevSq = to_sq((ss-2)->currentMove);
         Followupmoves.update(pos.piece_on(prevPrevSq), prevPrevSq, move);
+
+        // Extra penalty for TT move in previous ply when it gets refuted
+        HistoryStats& ttMoveCmh = CounterMovesHistory[pos.piece_on(prevPrevSq)][prevPrevSq];
+        ttMoveCmh.update(pos.piece_on(prevSq), prevSq, -bonus - 2 * depth / ONE_PLY - 1);
     }
   }
 
