@@ -183,15 +183,15 @@ void Search::init() {
 }
 
 
-/// Search::reset() clears all search memory, to restore a deterministic state
+/// Search::reset() clears all search memory, to obtain reproducible search results
 
 void Search::reset () {
 
-    TT.clear();
-    History.clear();
-    CounterMovesHistory.clear();
-    Gains.clear();
-    Countermoves.clear();
+  TT.clear();
+  History.clear();
+  CounterMovesHistory.clear();
+  Gains.clear();
+  Countermoves.clear();
 }
 
 
@@ -861,7 +861,7 @@ moves_loop: // When in check and at SpNode search starts from here
       captureOrPromotion = pos.capture_or_promotion(move);
 
       givesCheck =  type_of(move) == NORMAL && !ci.dcCandidates
-                  ? ci.checkSq[type_of(pos.piece_on(from_sq(move)))] & to_sq(move)
+                  ? ci.checkSquares[type_of(pos.piece_on(from_sq(move)))] & to_sq(move)
                   : pos.gives_check(move, ci);
 
       dangerous =   givesCheck
@@ -1284,7 +1284,7 @@ moves_loop: // When in check and at SpNode search starts from here
       assert(is_ok(move));
 
       givesCheck =  type_of(move) == NORMAL && !ci.dcCandidates
-                  ? ci.checkSq[type_of(pos.piece_on(from_sq(move)))] & to_sq(move)
+                  ? ci.checkSquares[type_of(pos.piece_on(from_sq(move)))] & to_sq(move)
                   : pos.gives_check(move, ci);
 
       // Futility pruning
