@@ -580,12 +580,16 @@ namespace {
         if (alpha >= beta)
             return alpha;
     }
+    else
+    	  ss->isVerification = (ss-1)->isVerification = (ss+1)->isVerification = false;
 
     assert(0 <= ss->ply && ss->ply < MAX_PLY);
 
     ss->currentMove = ss->ttMove = (ss+1)->excludedMove = bestMove = MOVE_NONE;
     (ss+1)->skipEarlyPruning = false; (ss+1)->reduction = DEPTH_ZERO;
     (ss+2)->killers[0] = (ss+2)->killers[1] = MOVE_NONE;
+    if ((ss-1)->isVerification)
+        (ss+1)->isVerification = true;
 
     // Step 4. Transposition table lookup
     // We don't want the score of a partial search to overwrite a previous full search
@@ -712,6 +716,7 @@ namespace {
     if (   !PvNode
         &&  depth >= 2 * ONE_PLY
         &&  eval >= beta
+        && !ss->isVerification
         &&  pos.non_pawn_material(pos.side_to_move()))
     {
         ss->currentMove = MOVE_NULL;
@@ -739,8 +744,10 @@ namespace {
 
             // Do verification search at high depths
             ss->skipEarlyPruning = true;
+            ss->isVerification = true;
             Value v = depth-R < ONE_PLY ? qsearch<NonPV, false>(pos, ss, beta-1, beta, DEPTH_ZERO)
                                         :  search<NonPV, false>(pos, ss, beta-1, beta, depth-R, false);
+            ss->isVerification = false;
             ss->skipEarlyPruning = false;
 
             if (v >= beta)
