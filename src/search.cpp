@@ -41,6 +41,7 @@ namespace Search {
   LimitsType Limits;
   RootMoveVector RootMoves;
   Position RootPos;
+  int RootPly;
   StateStackPtr SetupStates;
 }
 
@@ -228,7 +229,8 @@ template uint64_t Search::perft<true>(Position& pos, Depth depth);
 void Search::think() {
 
   Color us = RootPos.side_to_move();
-  Time.init(Limits, us, RootPos.game_ply(), now());
+  RootPly = RootPos.game_ply();
+  Time.init(Limits, us, RootPly, now());
 
   int contempt = Options["Contempt"] * PawnValueEg / 100; // From centipawns
   DrawValue[ us] = VALUE_DRAW - Value(contempt);
@@ -578,12 +580,16 @@ namespace {
         if (alpha >= beta)
             return alpha;
     }
+    else
+    	  ss->isVerification = (ss-1)->isVerification = (ss+1)->isVerification = false;
 
     assert(0 <= ss->ply && ss->ply < MAX_PLY);
 
     ss->currentMove = ss->ttMove = (ss+1)->excludedMove = bestMove = MOVE_NONE;
-    (ss+1)->skipEarlyPruning = false; (ss+1)->reduction = DEPTH_ZERO;
+    (ss+1)->skipEarlyPruning = false;
+    (ss+1)->reduction = DEPTH_ZERO;
     (ss+2)->killers[0] = (ss+2)->killers[1] = MOVE_NONE;
+    (ss+1)->isVerification = (ss-1)->isVerification;
 
     // Step 4. Transposition table lookup
     // We don't want the score of a partial search to overwrite a previous full search
@@ -599,6 +605,7 @@ namespace {
         && ttHit
         && tte->depth() >= depth
         && ttValue != VALUE_NONE // Only in case of TT access race
+        && !(excludedMove && ttMove == excludedMove)
         && (ttValue >= beta ? (tte->bound() & BOUND_LOWER)
                             : (tte->bound() & BOUND_UPPER)))
     {
@@ -699,14 +706,16 @@ namespace {
     if (   !PvNode
         &&  depth >= 2 * ONE_PLY
         &&  eval >= beta
+        && !ss->isVerification
         &&  pos.non_pawn_material(pos.side_to_move()))
     {
         ss->currentMove = MOVE_NULL;
 
         assert(eval - beta >= 0);
+        int pawnsAboveBeta = int(eval - beta) / PawnValueMg;
 
         // Null move dynamic reduction based on depth and value
-        Depth R = ((823 + 67 * depth) / 256 + std::min((eval - beta) / PawnValueMg, 3)) * ONE_PLY;
+        Depth R = ((823 + 67 * depth) / 256 + std::min(pawnsAboveBeta, 3)) * ONE_PLY;
 
         pos.do_null_move(st);
         (ss+1)->skipEarlyPruning = true;
@@ -725,12 +734,15 @@ namespace {
                 return nullValue;
 
             // Do verification search at high depths
+            Value rBeta = beta + Value(pawnsAboveBeta * 100);
             ss->skipEarlyPruning = true;
-            Value v = depth-R < ONE_PLY ? qsearch<NonPV, false>(pos, ss, beta-1, beta, DEPTH_ZERO)
-                                        :  search<NonPV, false>(pos, ss, beta-1, beta, depth-R, false);
+            ss->isVerification   = true;
+            Value v = depth-R < ONE_PLY ? qsearch<NonPV, false>(pos, ss, rBeta-1, rBeta, DEPTH_ZERO)
+                                        :  search<NonPV, false>(pos, ss, rBeta-1, rBeta, depth-R, false);
+            ss->isVerification   = false;
             ss->skipEarlyPruning = false;
 
-            if (v >= beta)
+            if (v >= rBeta)
                 return nullValue;
         }
     }
@@ -799,7 +811,7 @@ moves_loop: // When in check and at SpNode search starts from here
                            &&  abs(ttValue) < VALUE_KNOWN_WIN
                            && !excludedMove // Recursive singular search is not allowed
                            && (tte->bound() & BOUND_LOWER)
-                           &&  tte->depth() >= depth - 3 * ONE_PLY;
+                           &&  tte->depth() >= depth - 4 * ONE_PLY;
 
     // Step 11. Loop through moves
     // Loop through all pseudo-legal moves until no moves remain or a beta cutoff occurs
@@ -850,7 +862,9 @@ moves_loop: // When in check and at SpNode search starts from here
 
       dangerous =   givesCheck
                  || type_of(move) != NORMAL
-                 || pos.advanced_pawn_push(move);
+                 || (    type_of(pos.moved_piece(move)) == PAWN
+                     && (   pos.advanced_pawn_push(move)
+                         || pos.pawn_passed(pos.side_to_move(), to_sq(move))));
 
       // Step 12. Extend checks
       if (givesCheck && pos.see_sign(move) >= VALUE_ZERO)
@@ -866,14 +880,35 @@ moves_loop: // When in check and at SpNode search starts from here
           && !extension
           &&  pos.legal(move, ci.pinned))
       {
-          Value rBeta = ttValue - 2 * depth / ONE_PLY;
+          Value exclusionValue = -VALUE_INFINITE;
           ss->excludedMove = move;
           ss->skipEarlyPruning = true;
-          value = search<NonPV, false>(pos, ss, rBeta - 1, rBeta, depth / 2, cutNode);
+          exclusionValue = PvNode ? search<NonPV, false>(pos, ss, alpha, alpha + 1, depth, true)
+                                  : search<NonPV, false>(pos, ss, alpha, beta, depth - 4 * ONE_PLY, cutNode);
           ss->skipEarlyPruning = false;
           ss->excludedMove = MOVE_NONE;
-
-          if (value < rBeta)
+          if (   !PvNode
+              &&  exclusionValue > alpha
+              &&  ttValue > alpha
+              &&  (ss->currentMove && move != ss->currentMove))
+          {
+              pos.do_move(move, st, givesCheck);
+              (ss+1)->skipEarlyPruning = true;
+              value = - search<NonPV, false>(pos, ss+1, -(ttValue+1), -ttValue, depth - 4 * ONE_PLY, false);
+              (ss+1)->skipEarlyPruning = false;
+              pos.undo_move(move);
+              if (   value   >= ttValue
+                  && ttValue >= beta)
+              {
+                  if (tte->depth() < depth - 3 * ONE_PLY)
+                      tte->save(posKey, value_to_tt(value, ss->ply),
+                                value >= beta ? BOUND_LOWER : BOUND_UPPER,
+                                depth - 3 * ONE_PLY, move, ss->staticEval,
+                                TT.generation());
+                  return value;
+              }
+          }		  
+          if (exclusionValue <= alpha && ttValue > alpha)
               extension = ONE_PLY;
       }
 
