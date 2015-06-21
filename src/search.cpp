@@ -581,7 +581,7 @@ namespace {
             return alpha;
     }
     else
-    	  ss->isVerification = (ss-1)->isVerification = (ss+1)->isVerification = false;
+        ss->isVerification = (ss-1)->isVerification = (ss+1)->isVerification = false;
 
     assert(0 <= ss->ply && ss->ply < MAX_PLY);
 
@@ -1040,6 +1040,10 @@ moves_loop: // When in check and at SpNode search starts from here
                             givesCheck ? -qsearch<PV,  true>(pos, ss+1, -beta, -alpha, DEPTH_ZERO)
                                        : -qsearch<PV, false>(pos, ss+1, -beta, -alpha, DEPTH_ZERO)
                                        : - search<PV, false>(pos, ss+1, -beta, -alpha, newDepth, false);
+      }
+      else if (PvNode && value >= beta && newDepth > ONE_PLY)
+      {
+          value = - search<NonPV, false>(pos, ss+1, -(beta+1), -beta, newDepth + 4 * ONE_PLY, true);
       }
 
       // Step 17. Undo move
