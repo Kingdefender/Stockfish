@@ -48,6 +48,7 @@ struct Stack {
   Value staticEval;
   bool skipEarlyPruning;
   bool isVerification;
+  int moveCount;
 };
 
 /// RootMove struct is used for moves at the root of the tree. For each root move
