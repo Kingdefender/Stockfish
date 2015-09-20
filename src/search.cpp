@@ -1661,7 +1661,7 @@ void Thread::idle_loop() {
 
           else
               assert(false);
-
+          
           assert(searching);
 
           searching = false;
