@@ -344,7 +344,7 @@ namespace {
     Move easyMove = EasyMove.get(pos.key());
     EasyMove.clear();
 
-    std::memset(ss-2, 0, 5 * sizeof(Stack));
+    std::memset(stack, 0, 5 * sizeof(Stack));
 
     depth = DEPTH_ZERO;
     BestMoveChanges = 0;
@@ -883,7 +883,6 @@ moves_loop: // When in check and at SpNode search starts from here
           && !captureOrPromotion
           && !inCheck
           && !givesCheck
-          &&  type_of(move) == NORMAL
           && !pos.advanced_pawn_push(move)
           &&  bestValue > VALUE_MATED_IN_MAX_PLY)
       {
@@ -1626,6 +1625,7 @@ void Thread::idle_loop() {
           else
               assert(false);
 
+          spinlock.acquire();
           assert(searching);
 
           searching = false;
@@ -1637,6 +1637,7 @@ void Thread::idle_loop() {
           // After releasing the lock we can't access any SplitPoint related data
           // in a safe way because it could have been released under our feet by
           // the sp master.
+          spinlock.release();
           sp->spinlock.release();
 
           // Try to late join to another split point if none of its slaves has
