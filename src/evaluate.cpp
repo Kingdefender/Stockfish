@@ -233,6 +233,7 @@ namespace {
     if (pos.non_pawn_material(Us) >= QueenValueMg)
     {
         ei.kingRing[Them] = b | shift_bb<Down>(b);
+        b |= pos.pinned_pieces(Them);
         b &= ei.attackedBy[Us][PAWN];
         ei.kingAttackersCount[Us] = popcount(b);
         ei.kingAdjacentZoneAttacksCount[Us] = ei.kingAttackersWeight[Us] = 0;
