@@ -800,9 +800,12 @@ namespace {
             }
     }
 
+moves_loop: // When in check or ss->skipEarlyPruning search starts from here
+
     // Step 10. Internal iterative deepening (skipped when in check)
     if (    depth >= 6 * ONE_PLY
         && !ttMove
+        && !inCheck
         && (PvNode || ss->staticEval + 256 >= beta))
     {
         ss->skipEarlyPruning = true;
@@ -812,8 +815,6 @@ namespace {
         tte = TT.probe(posKey, ttHit);
         ttMove = ttHit ? tte->move() : MOVE_NONE;
     }
-
-moves_loop: // When in check search starts from here
 
     const CounterMoveStats* cmh  = (ss-1)->counterMoves;
     const CounterMoveStats* fmh  = (ss-2)->counterMoves;
