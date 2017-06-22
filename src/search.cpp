@@ -987,12 +987,8 @@ moves_loop: // When in check search starts from here
           else
           {
           
-              // Increase reduction if ttMove is a capture
-              if (ttCapture || singularExtended)
-                  r += ONE_PLY;
-          
-              // Increase reduction for cut nodes
-              if (cutNode)
+              // Increase reduction for cut nodes or if ttMove is a capture or singular
+              if (cutNode || ttCapture || singularExtended)
                   r += 2 * ONE_PLY;
 
               // Decrease reduction for moves that escape a capture. Filter out
