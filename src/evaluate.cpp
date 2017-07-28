@@ -695,7 +695,16 @@ namespace {
         // pawn push to become passed or have a pawn in front of them.
         if (!pos.pawn_passed(Us, s + Up) || (pos.pieces(PAWN) & forward_file_bb(Us, s)))
             mbonus /= 2, ebonus /= 2;
-
+        // Scale down pawn endgames where the pawn seems stoppable
+        if (!pos.non_pawn_material())
+        {
+          Square queeningSquare = relative_square(Us, make_square(file_of(s), RANK_8));
+          int d1 = distance(pos.square<KING>(Us), queeningSquare);
+          int d2 = distance(pos.square<KING>(Them), queeningSquare);
+          int d3 = distance(s, queeningSquare);
+          if (d2 <= d3 && d1 > d3)
+            mbonus /= 2, ebonus /= 2;
+        }
         score += make_score(mbonus, ebonus) + PassedFile[file_of(s)];
     }
 
