@@ -691,6 +691,9 @@ namespace {
                 mbonus += rr + r * 2, ebonus += rr + r * 2;
         } // rr != 0
 
+        // Imbalance penalty for trading off the Knights.
+        ebonus -= ((2 - pos.pieces(Us, KNIGHT)) * 255 + (2 - pos.pieces(Them, KNIGHT)) * 63) / 16;
+        
         // Scale down bonus for candidate passers which need more than one
         // pawn push to become passed or have a pawn in front of them.
         if (!pos.pawn_passed(Us, s + Up) || (pos.pieces(PAWN) & forward_file_bb(Us, s)))
